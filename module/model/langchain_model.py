@@ -4,6 +4,7 @@ from langchain_community.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from ..util import get_openai_api_key, get_depts
 from ..api import Cache
+import re
 
 
 class LangChainModel:
@@ -151,8 +152,45 @@ class LangChainModel:
                 )
             return "\n\n".join(response)
 
+        def get_instructors(course_codes: list[str] | str) -> str:
+            if isinstance(course_codes, str):
+                course_codes = [course_codes]
+
+            response = []
+            for course in course_codes:
+                try:
+                    data = self.cache[course]
+                    match = re.search(r"Instructor:\s*(.+)", data)
+                    if match:
+                        instructor = match.group(1).strip()
+                        response.append(f"{course}: {instructor}")
+                    else:
+                        response.append(f"{course}: Instructor not found.")
+                except ValueError:
+                    response.append(f"{course}: Course not found.")
+            return "\n".join(response)
+
+        # New tool: get credits
+        def get_credits(course_codes: list[str] | str) -> str:
+            if isinstance(course_codes, str):
+                course_codes = [course_codes]
+
+            response = []
+            for course in course_codes:
+                try:
+                    data = self.cache[course]
+                    match = re.search(r"Units:\s*(\d+(\.\d+)?)", data)
+                    if match:
+                        units = match.group(1)
+                        response.append(f"{course}: {units} units")
+                    else:
+                        response.append(f"{course}: Units not found.")
+                except ValueError:
+                    response.append(f"{course}: Course not found.")
+            return "\n".join(response)
+
         # Simplified wrapper for get_depts
-        def simple_get_depts(*args) -> str:
+        def get_departments(*args) -> str:
             """
             Get all departments in the given term.
 
@@ -171,7 +209,7 @@ class LangChainModel:
         self.tools = [
             Tool(
                 name="get_departments",
-                func=simple_get_depts,
+                func=get_departments,
                 description=(
                     "Use this tool when the user wants to see which departments offer courses in the current term. "
                     "This tool returns a list of department codes along with their full department names. "
