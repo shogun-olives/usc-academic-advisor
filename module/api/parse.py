@@ -96,6 +96,8 @@ def get_courses_dfs(
             if section_data.get("type") != "Lec":
                 continue
 
+            if "id" not in section_data:
+                continue
             # Get instructor data
             sections.append(
                 {
@@ -123,7 +125,11 @@ def get_courses_dfs(
             )
 
     # convert the list of dictionaries to a dataframe
-    courses = pd.DataFrame(courses)
-    sections = pd.DataFrame(sections)
+    courses = pd.DataFrame(
+        courses, columns=["code", "dept", "term", "title", "description", "units"])
+    sections = pd.DataFrame(sections, columns=[
+        "id", "code", "dept", "term", "instructor", "location",
+        "start_time", "end_time", "day", "spaces_left", "number_registered", "spaces_available"
+    ])
 
     return courses, sections
