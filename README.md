@@ -131,13 +131,13 @@ Before getting started, there are two requirements
         -   [x] Live data caching
         -   [x] Quick access functions
     -   [x] LLM and RAG Integration
--   [ ] User Interface (UI)
+-   [x] User Interface (UI)
     -   [x] Basic Streamlit UI
         -   [x] Allow users to chat with AI
         -   [x] Chat history is displayed
-    -   [ ] Side-Bar for displaying Schedule
-        -   [ ] Obtain schedule from LLM
-        -   [ ] Tabular display of data
+    -   [x] Side-Bar for displaying Schedule
+        -   [x] Obtain schedule from LLM
+        -   [x] Tabular display of data
 -   [ ] Fine Tuning
     -   [ ] Create data for custom model features
     -   [ ] Train model and continue fine tuning
