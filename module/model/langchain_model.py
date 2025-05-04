@@ -92,64 +92,30 @@ class LangChainModel:
         self.dflt_max_tokens = max_tokens
 
         # First tool for model to use
-        def get_courses(departments: list[str] | str) -> str:
+        def get_courses(dept: str) -> str:
             """
-            Get all courses in the given term and departments.
+            Get all courses in the department.
 
             Args:
-                departments (list[str]): List of department codes.
+                dept (str): The department code.
 
             Returns:
                 str: Formatted string of all courses in the given term and departments.
             """
-            if isinstance(departments, str):
-                departments = [departments]
-
-            response = []
-            errors = []
-            for dept in departments:
-                # try to get the course
-                try:
-                    response.append(self.cache[dept])
-                except ValueError:
-                    errors.append(dept)
-
-            if len(errors) > 0:
-                return (
-                    f"The following departments could not be found: {', '.join(errors)}\n\n"
-                    + "\n\n".join(response)
-                )
-            return "\n\n".join(response)
+            return self.cache.get_courses(dept)
 
         # Second tool for model to use
-        def get_sections(courses: list[str] | str) -> str:
+        def get_sections(course: str) -> str:
             """
-            Get all sections in the given term and courses.
+            Get all sections in the course.
 
             Args:
-                courses (list[str]): List of course codes.
+                course (str): The course code.
 
             Returns:
                 str: Formatted string of all sections in the given term and courses.
             """
-            if isinstance(courses, str):
-                courses = [courses]
-
-            response = []
-            errors = []
-            for course in courses:
-                # try to get the course
-                try:
-                    response.append(self.cache[course])
-                except ValueError:
-                    errors.append(course)
-
-            if len(errors) > 0:
-                return (
-                    f"The following courses could not be found: {', '.join(errors)}\n\n"
-                    + "\n\n".join(response)
-                )
-            return "\n\n".join(response)
+            return self.cache.get_sections(course)
 
         # Simplified wrapper for get_depts
         def simple_get_depts(*args) -> str:
@@ -160,8 +126,7 @@ class LangChainModel:
                 str: Formatted string of all departments in the given term.
             """
             return "\n".join(
-                [f"{code}: {dept}" for code, dept in get_depts(
-                    self.cache.term).items()]
+                [f"{code}: {dept}" for code, dept in get_depts(self.cache.term).items()]
             )
 
         # Set up tools for agent
@@ -172,52 +137,17 @@ class LangChainModel:
             Tool(
                 name="get_departments",
                 func=simple_get_depts,
-                description=(
-                    "Use this tool when the user wants to see which departments offer courses in the current term. "
-                    "This tool returns a list of department codes along with their full department names. "
-                    "For example, use it when the user asks 'What departments are available?' or 'List all departments'."
-                ),
+                description="Takes no inputs and gives a complete list of departments and their codes for the given term",
             ),
-
             Tool(
                 name="get_courses",
                 func=get_courses,
-                description=(
-                    "Use this tool to retrieve a list of all courses offered by one or more departments in the current term. "
-                    "You can input a single department code or a list of department codes (e.g., ['CSCI', 'EE']). "
-                    "This is helpful when a user asks: 'Show me all courses in CSCI', 'What courses does EE offer this term?', etc."
-                ),
+                description="Takes a department code (CSCI, MATH, etc.) and returns all courses in the given term and department in csv format",
             ),
-
             Tool(
                 name="get_sections",
                 func=get_sections,
-                description=(
-                    "Use this tool to retrieve detailed section information for specific courses in the current term. "
-                    "Input a list of course codes (e.g., ['CSCI 104', 'MATH 125']). "
-                    "This tool returns section numbers, meeting times, and instructors. "
-                    "Use it when the user asks: 'Who teaches CSCI 104?', 'What time is MATH 125?', or 'List all sections of CSCI 201'."
-                ),
-            ),
-
-            Tool(
-                name="get_instructors",
-                func=get_instructors,
-                description=(
-                    "Use this tool to extract and display the professor or instructor names for given courses. "
-                    "Input one or more course codes (e.g., 'CSCI 104'). "
-                    "Use this tool when the user asks: 'Who is the instructor for CSCI 104?', or 'Which professor teaches MATH 125?'."
-                ),
-            ),
-
-            Tool(
-                name="get_credits",
-                func=get_credits,
-                description=(
-                    "Use this tool to retrieve the number of units (credits) for specified courses. "
-                    "Input one or more course codes, such as 'CSCI 201'. "
-                    "Use this tool when users ask: 'How many units is CSCI 104?' or 'What are the credit values of these courses?'."
-                ),
+                description="Takes a course code (CSCI 101, MATH 125, etc.) and returns all sections in the given term and course in csv format",
             ),
         ]
 
@@ -240,7 +170,6 @@ class LangChainModel:
             agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION,
             memory=self.memory,
             verbose=True,
-            handle_parsing_errors=True,
         )
 
     def __call__(self, prompt: str) -> str:
