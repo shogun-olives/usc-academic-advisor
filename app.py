@@ -133,10 +133,6 @@ def main() -> None:
         st.session_state["messages"].append(
             {"role": "assistant", "content": response})
 
-        # ✅ Clear logs after displaying
-        if debug_mode:
-            st.session_state["debug_logs"] = []
-
 
 if __name__ == "__main__":
     main()
