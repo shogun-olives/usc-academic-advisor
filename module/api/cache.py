@@ -1,7 +1,16 @@
 import pandas as pd
 from ..util import conv_term, conv_dept, get_depts
 from .parse import get_courses_dfs
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import difflib
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 
 
 class Cache(object):
@@ -138,7 +147,19 @@ class Cache(object):
         # check if the department is valid
         dept = conv_dept(dept)
         if dept is None:
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
             return f"'{dept}' is not a valid department. Use 'get_depts()' to see a list of valid departments."
+=======
+            return f"'{dept}' is not a valid department"
+>>>>>>> Stashed changes
+=======
+            return f"'{dept}' is not a valid department"
+>>>>>>> Stashed changes
+=======
+            return f"'{dept}' is not a valid department"
+>>>>>>> Stashed changes
 
         # Retrieve data if not already cached
         self.retrieve(dept)
@@ -191,6 +212,9 @@ class Cache(object):
         course_num = code_split[-1]
 
         # check if the department is valid
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
         original_dept = dept
         dept = conv_dept(dept)
         if dept is None:
@@ -198,6 +222,21 @@ class Cache(object):
             if dept is None:
                 return f"'{course_code}' could not find corresponding department. Use 'get_depts()' to see a list of valid departments."
             return f"Did you mean '{dept} {course_num}'? Please try again with the full code."
+=======
+        dept = conv_dept(dept)
+        if dept is None:
+            return f"'{course_code}' could not find corresponding department"
+>>>>>>> Stashed changes
+=======
+        dept = conv_dept(dept)
+        if dept is None:
+            return f"'{course_code}' could not find corresponding department"
+>>>>>>> Stashed changes
+=======
+        dept = conv_dept(dept)
+        if dept is None:
+            return f"'{course_code}' could not find corresponding department"
+>>>>>>> Stashed changes
 
         # Retrieve data if not already cached
         self.retrieve(dept)
@@ -205,6 +244,9 @@ class Cache(object):
         # filter courses by term and department
         ret = self.sections[self.sections["term"] == self.term]
         ret = ret[ret["code"] == f"{dept.upper()} {course_num}"]
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
         ret.drop(columns=["term", "dept", "code",
                  "spaces_available"], inplace=True)
 
@@ -224,3 +266,22 @@ class Cache(object):
                 if matches[0].lower() in [k.lower(), v.lower()]:
                     return k
         return None
+=======
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+        ret.drop(columns=["term", "dept", "code", "spaces_available"], inplace=True)
+
+        if ret.empty:
+            return f"'{course_code}' could not be found"
+
+        # format as csv
+        return ret.to_csv(index=False, sep=",")
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
