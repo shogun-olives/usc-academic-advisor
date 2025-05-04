@@ -92,64 +92,30 @@ class LangChainModel:
         self.dflt_max_tokens = max_tokens
 
         # First tool for model to use
-        def get_courses(departments: list[str] | str) -> str:
+        def get_courses(dept: str) -> str:
             """
-            Get all courses in the given term and departments.
+            Get all courses in the department.
 
             Args:
-                departments (list[str]): List of department codes.
+                dept (str): The department code.
 
             Returns:
                 str: Formatted string of all courses in the given term and departments.
             """
-            if isinstance(departments, str):
-                departments = [departments]
-
-            response = []
-            errors = []
-            for dept in departments:
-                # try to get the course
-                try:
-                    response.append(self.cache[dept])
-                except ValueError:
-                    errors.append(dept)
-
-            if len(errors) > 0:
-                return (
-                    f"The following departments could not be found: {', '.join(errors)}\n\n"
-                    + "\n\n".join(response)
-                )
-            return "\n\n".join(response)
+            return self.cache.get_courses(dept)
 
         # Second tool for model to use
-        def get_sections(courses: list[str] | str) -> str:
+        def get_sections(course: str) -> str:
             """
-            Get all sections in the given term and courses.
+            Get all sections in the course.
 
             Args:
-                courses (list[str]): List of course codes.
+                course (str): The course code.
 
             Returns:
                 str: Formatted string of all sections in the given term and courses.
             """
-            if isinstance(courses, str):
-                courses = [courses]
-
-            response = []
-            errors = []
-            for course in courses:
-                # try to get the course
-                try:
-                    response.append(self.cache[course])
-                except ValueError:
-                    errors.append(course)
-
-            if len(errors) > 0:
-                return (
-                    f"The following courses could not be found: {', '.join(errors)}\n\n"
-                    + "\n\n".join(response)
-                )
-            return "\n\n".join(response)
+            return self.cache.get_sections(course)
 
         # Simplified wrapper for get_depts
         def simple_get_depts(*args) -> str:
@@ -176,12 +142,12 @@ class LangChainModel:
             Tool(
                 name="get_courses",
                 func=get_courses,
-                description="Takes a list of departments and a term and returns all stcourses in the given term and departments",
+                description="Takes a department code (CSCI, MATH, etc.) and returns all courses in the given term and department in csv format",
             ),
             Tool(
                 name="get_sections",
                 func=get_sections,
-                description="Takes a list of courses and a term and returns all sections in the given term and courses",
+                description="Takes a course code (CSCI 101, MATH 125, etc.) and returns all sections in the given term and course in csv format",
             ),
         ]
 

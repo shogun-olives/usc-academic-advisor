@@ -1,5 +1,5 @@
-from .term_info import term_code
-from .bs_util import scrape
+from .format import conv_term
+from .scrape import scrape
 import urllib
 
 
@@ -22,8 +22,8 @@ def get_depts(
     Examples:
         ```
         # Get departments with department code as key
-        # csci: Computer Science
-        # math: Mathematics
+        # csci: computer science
+        # math: mathematics
         departments = get_depts()
         print(departments)
 
@@ -41,7 +41,7 @@ def get_depts(
         ```
     """
     # Set the term to the upcoming term if not provided]
-    term = term_code(term)
+    term = conv_term(term)
 
     # Get the soup object for the given term
     url = f"https://classes.usc.edu/term-{term}/"
@@ -74,13 +74,18 @@ def get_depts(
     return departments
 
 
-def dept_code(dept: str, lower: bool = False) -> str:
+# This function really should be in format.py,
+# but due to creating a circular import, it is here.
+def conv_dept(dept: str, lower: bool = False) -> str | None:
     """
     Convert a department to a code.
 
     Args:
         dept (str): The department name or code (e.g., "Computer Science" or "CSCI").
         lower (bool): If True, the department code will be converted to lowercase. (default: False)
+
+    Returns:
+        out (str | None): The department code (e.g., "CSCI") or None if the department is not found.
 
     Examples:
         ```
@@ -103,5 +108,5 @@ def dept_code(dept: str, lower: bool = False) -> str:
         # Department code format (e.g., "CSCI")
         return dept if lower else dept.upper()
 
-    # If the department is not found, raise an error
-    raise ValueError(f"Department '{dept}' Could not be found.")
+    # If the department is not found, return None
+    return None

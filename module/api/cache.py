@@ -1,6 +1,6 @@
-from ..util import term_code, dept_code
-from ..classes import Course, Section, Instructor
-from .usc_soc_requests import call_usc_api
+import pandas as pd
+from ..util import conv_term, conv_dept, get_depts
+from .parse import get_courses_dfs
 
 
 class Cache(object):
@@ -27,12 +27,11 @@ class Cache(object):
         # If data is not in cache, API call will be made to fetch data
 
         # Can access courses by department code
-        my_cache["CSCI", 20253]  # (str) of all courses in the given term and department
-        my_cache["CSCI"]  # (str) of all courses in the active term and department
+        my_cache.get_courses("CSCI")
+        my_cache.get_courses("Computer Science")
 
         # Can access sections by course code
-        my_cache["CSCI 101", 20253]  # (str) of all sections in the given term and course
-        my_cache["CSCI 101"]  # (str) of all sections in the active term and course
+        my_cache.get_sections("CSCI 100")
         ```
     """
 
@@ -54,172 +53,11 @@ class Cache(object):
             my_cache = Cache()
             ```
         """
-        self.term = term_code(term)
-        self.cache = {self.term: dict()}
-
-    def __getitem__(self, args) -> str:
-        """
-        Get the value of a specific attribute from the cache.
-
-        Return will always be a formatted string of the data
-
-
-        Args:
-            key (str): The key to access the cache.
-            term (int | str): The term code (e.g., "20253" or "Fall 2025").
-
-
-        Examples:
-            ```
-            # Data stored in cache will be prioritized
-            # If data is not in cache, API call will be made to fetch data
-
-            # Can access courses by department code
-            my_cache["CSCI", 20253]  # (str) of all courses in the given term and department
-            my_cache["CSCI"]  # (str) of all courses in the active term and department
-            my_cache["Computer Science"]  # (str) of all courses in the active term and department
-
-            # Can access sections by course code
-            my_cache["CSCI 101", 20253]  # (str) of all sections in the given term and course
-            my_cache["CSCI 101"]  # (str) of all sections in the active term and course
-            my_cache["Computer Science 101"]  # (str) of all sections in the active term and course
-            ```
-        """
-        # ensure input is tuple
-        if isinstance(args, str):
-            args = (args,)
-
-        # Check if the number of arguments is valid
-        if len(args) > 2:
-            raise ValueError("Too many arguments provided.")
-        elif len(args) == 0:
-            raise ValueError("No arguments provided.")
-
-        # If there are two arguments, the second is the term
-        if len(args) == 2:
-            self.update_term(args[1])
-
-        # First argument is always the key
-        key = args[0]
-
-        # Split the key into department and course number
-        key_split = key.split(" ")
-
-        # If there is no course number, key is a department code
-        if len(key_split) == 1:
-            dept = dept_code(key)
-
-            # If department is valid but not in cache, retrieve it
-            if dept not in self.cache[self.term]:
-                self.retrieve(dept)
-
-            return "\n".join(
-                [str(course) for course in self.cache[self.term][dept].values()]
-            )
-
-        # If there is a course number, key is a course code
-        dept = dept_code(" ".join(key_split[:-1]))
-        course_num = key_split[-1]
-
-        # If department is valid but not in cache, retrieve it
-        if dept not in self.cache[self.term]:
-            self.retrieve(dept)
-
-        # If course number is valid, return the course object
-        if course_num in self.cache[self.term][dept]:
-            return str(self.cache[self.term][dept][course_num])
-        else:
-            raise ValueError(
-                f"Course '{course_num}' not found in department '{dept}' for term '{self.term}'."
-            )
-
-    def retrieve(self, dept: str, term: str | int = None) -> None:
-        """
-        Retrieve course data for a specific department and term.
-
-        Args:
-            dept (str): The department code (e.g., "CSCI").
-            term (str | int): The term code (e.g., "20253" or "Fall 2025"). (default: None)
-                If None, the current term will be used.
-
-        Examples:
-            ```
-            # Retrieve course data for a specific department and term
-            my_cache.retrieve("CSCI", "20253")
-            my_cache.retrieve("CSCI", "Fall 2025")
-            my_cache.retrieve("Computer Science")
-
-            data = my_cache["CSCI 101"]
-            ```
-        """
-        # Update term if provided
-        if term is not None:
-            self.update_term(term)
-
-        # check dept
-        dept = dept_code(dept)
-
-        # make API call to USC
-        raw_data = call_usc_api(dept, self.term)
-
-        # prepare cache for the term
-        self.cache[self.term][dept] = dict()
-
-        # For each course in the raw data
-        for course_data in raw_data["OfferedCourses"]["course"]:
-            course_data = course_data["CourseData"]
-            # Get all sections in the course
-            sections = []
-            for section_data in (
-                course_data["SectionData"]
-                if isinstance(course_data["SectionData"], list)
-                else [course_data["SectionData"]]
-            ):
-                # Skip non-lecture sections
-                if section_data.get("type") != "Lecture":
-                    continue
-
-                # Get instructor data
-                if "instructor" not in section_data:
-                    instructor = "N/A"
-                elif isinstance(section_data["instructor"], list):
-                    instructor = Instructor(
-                        section_data["instructor"][0]["first_name"],
-                        section_data["instructor"][0]["last_name"],
-                        section_data["instructor"][0].get("bio_url"),
-                    )
-                else:
-                    instructor = Instructor(
-                        section_data["instructor"]["first_name"],
-                        section_data["instructor"]["last_name"],
-                        section_data["instructor"].get("bio_url"),
-                    )
-                # Create a section object
-                sections.append(
-                    Section(
-                        section_data.get("id"),
-                        instructor,
-                        section_data.get("spaces_available", 0),
-                        section_data.get("number_registered", 0),
-                        section_data.get("location", "N/A"),
-                        section_data.get("start_time", "N/A"),
-                        section_data.get("end_time", "N/A"),
-                        section_data.get("day", ""),
-                    )
-                )
-
-            # Create a course object
-            course = Course(
-                course_data["prefix"],
-                course_data["number"],
-                course_data["title"],
-                course_data["description"],
-                course_data["units"],
-                sections,
-            )
-
-            # Add course to cache at cache[term][dept][number]
-            self.cache[self.term][dept][course.number] = course
+        self.term = conv_term(term)
+        self.cached = set()
+        self.depts = get_depts(code_is_key=False)
+        self.courses = pd.DataFrame()
+        self.sections = pd.DataFrame()
 
     def update_term(self, term: str | int) -> None:
         """
@@ -233,7 +71,139 @@ class Cache(object):
             # Update the current term to scrape data from
             my_cache.update_term("Fall 2025")
             my_cache.update_term(20253)
+
+            # Uses next term
+            my_cache.update_term()
             ```
         """
-        self.term = term_code(term)
-        self.cache[self.term] = dict()
+        self.term = conv_term(term)
+
+    def retrieve(self, dept: str) -> None:
+        """
+        Retrieve course data for a specific department and term.
+
+        Args:
+            dept (str): The department code (e.g., "CSCI").
+
+        Examples:
+            ```
+            # Retrieve course data for a specific department and term from API
+            my_cache.retrieve("CSCI")
+            ```
+        """
+        # Check if the department is already cached
+        if (dept, self.term) in self.cached:
+            return
+
+        # If not cached, retrieve data from API and store it in the cache
+        self.cached.add((dept, self.term))
+        courses, sections = get_courses_dfs(dept, self.term)
+
+        self.courses = pd.concat([self.courses, courses], ignore_index=True)
+        self.sections = pd.concat([self.sections, sections], ignore_index=True)
+
+    def get_courses(self, dept: str) -> str:
+        """
+        Get all courses for a specific department in the current term. (comma separated values)
+
+        Args:
+            dept (str): The department code (e.g., "CSCI").
+
+        Returns:
+            output (str): A csv formatted string of all courses in the given term and department.
+
+        Examples:
+            ```
+            # Get all courses for a specific department in the current term
+            courses = my_cache.get_courses("CSCI")
+            courses = my_cache.get_courses("Computer Science")
+
+            print(courses)
+            # code,title,description,units
+            # CSCI 794A,Doctoral Dissertation,Credit on acceptance of Dissertation. Graded CR/NC.,2
+            # CSCI 794B,Doctoral Dissertation,Credit on acceptance of Dissertation. Graded CR/NC.,2
+            # CSCI 794C,Doctoral Dissertation,Credit on acceptance of Dissertation. Graded CR/NC.,2
+            # CSCI 794D,Doctoral Dissertation,Credit on acceptance of Dissertation. Graded CR/NC.,2
+            # CSCI 794Z,Doctoral Dissertation,Credit on acceptance of Dissertation. Graded CR/NC.,0
+            # ...
+
+            # If the department is not found, an error message will be returned
+            courses = my_cache.get_courses("INVALID_DEPT")
+
+            print(courses)
+            # "'INVALID_DEPT' is not a valid department"
+            ```
+        """
+        # check if the department is valid
+        dept = conv_dept(dept)
+        if dept is None:
+            return f"'{dept}' is not a valid department"
+
+        # Retrieve data if not already cached
+        self.retrieve(dept)
+
+        # filter courses by term and department
+        ret = self.courses[self.courses["term"] == self.term]
+        ret = ret[ret["dept"] == dept.upper()]
+        ret.drop(columns=["term", "dept"], inplace=True)
+
+        # format as csv
+        return ret.to_csv(index=False, sep=",")
+
+    def get_sections(self, course_code: str) -> str:
+        """
+        Get all sections for a specific course in the current term. (csv formatted)
+
+        Args:
+            course_num (str): The course number (e.g., "CSCI 100").
+
+        Returns:
+            output (str): A csv formatted string of all sections in the given term and course.
+
+        Examples:
+            ```
+            # Get all sections for a specific course in the current term
+            sections = my_cache.get_sections("CSCI 104")
+
+            print(sections)
+            # id,instructor,location,start_time,end_time,day,spaces_left,number_registered
+            # 29903,Carter Slocum,THH201,12:30 PM,01:50 PM,"Tue, Thu",33,87
+            # 29910,Mukund Raghothaman,MHP101,05:00 PM,06:20 PM,"Mon, Wed",64,6
+            # 30397,Carter Slocum,SGM124,09:30 AM,10:50 AM,"Tue, Thu",74,46
+
+            # If the course number department is not found, an error message will be returned
+            sections = my_cache.get_sections("INVALID_COURSE")
+
+            print(sections)
+            # "'INVALID_COURSE' could not find corresponding department"
+
+            # If the course number is not found, an error message will be returned
+            sections = my_cache.get_sections("CSCI 101")
+
+            print(sections)
+            # "'CSCI 101' could not be found"
+            ```
+        """
+        # Split into department and course number
+        code_split = course_code.split(" ")
+        dept = " ".join(code_split[:-1])
+        course_num = code_split[-1]
+
+        # check if the department is valid
+        dept = conv_dept(dept)
+        if dept is None:
+            return f"'{course_code}' could not find corresponding department"
+
+        # Retrieve data if not already cached
+        self.retrieve(dept)
+
+        # filter courses by term and department
+        ret = self.sections[self.sections["term"] == self.term]
+        ret = ret[ret["code"] == f"{dept.upper()} {course_num}"]
+        ret.drop(columns=["term", "dept", "code", "spaces_available"], inplace=True)
+
+        if ret.empty:
+            return f"'{course_code}' could not be found"
+
+        # format as csv
+        return ret.to_csv(index=False, sep=",")
