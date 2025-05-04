@@ -191,3 +191,58 @@ def conv_term(term: int | str = None) -> int:
     raise ValueError(
         f"Term '{term}' has an invalid format. Expected 'Fall 2025' or '20253' or None."
     )
+
+
+def time_to_decimal(time_str: str) -> float:
+    """
+    Convert a time string in 12-hour format to decimal hours.
+
+    Args:
+        time_str (str): The time string to convert (e.g., "02:30 PM", "09:00 AM").
+
+    Returns:
+        output (float): The converted time in decimal hours.
+
+    Examples:
+        ```
+        # Convert "02:30 PM" to 14.5
+        decimal_time = time_to_decimal("02:30 PM")
+
+        # Convert "09:00 AM" to 9.0
+        decimal_time = time_to_decimal("09:00 AM")
+
+        # Convert "invalid_time" to 0.0
+        decimal_time = time_to_decimal("invalid_time")
+        ```
+    """
+    dt = datetime.strptime(time_str.strip().lower(), "%I:%M %p")
+    return dt.hour + dt.minute / 60
+
+
+def decimal_to_time(decimal_time: float) -> str:
+    """
+    Convert decimal time to a string in 12-hour format.
+
+    Args:
+        decimal_time (float): The decimal time to convert (e.g., 14.5, 9.0).
+
+    Returns:
+        output (str): The converted time string in 12-hour format (e.g., "02:30 PM", "09:00 AM").
+
+    Examples:
+        ```
+        # Convert 14.5 to "02:30 PM"
+        time_str = decimal_to_time(14.5)
+
+        # Convert 9.0 to "09:00 AM"
+        time_str = decimal_to_time(9.0)
+
+        # Convert 0.0 to "12:00 AM"
+        time_str = decimal_to_time(0.0)
+        ```
+    """
+    hours = int(decimal_time)
+    minutes = int((decimal_time - hours) * 60)
+    am_pm = "AM" if hours < 12 else "PM"
+    hours = hours % 12 or 12  # Convert to 12-hour format
+    return f"{hours:02}:{minutes:02} {am_pm}"

@@ -4,6 +4,7 @@ from langchain_community.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from ..util import get_openai_api_key, get_depts
 from ..api import Cache
+from ..ui import create_schedule
 import re
 import difflib
 
@@ -24,6 +25,8 @@ class LangChainModel:
         dflt_temp (float): The default temperature for the model.
         dflt_max_tokens (int): The default maximum number of tokens to generate.
         cache (Cache): An instance of the Cache class for storing data.
+        fig (Figure): A Plotly Figure that stores the current course schedule.
+        fig_created (bool): A flag indicating whether the schedule has been created.
         tools (list): A list of tools for the agent to use.
         memory (ConversationBufferMemory): Memory for the agent to store conversation history.
         llm (ChatOpenAI): The OpenAI model instance.
@@ -61,37 +64,47 @@ class LangChainModel:
         # Prepare cache
         self.cache = Cache()
 
+        # Create a schedule
+        self.fig = create_schedule()
+        self.fig_created = False
+
         # Set up default parameters
         self.dflt_model = model
         self.dflt_temp = temperature
         self.dflt_max_tokens = max_tokens
 
-        # First tool for model to use
+        # Tool 1: Get courses by department
         def get_courses(dept: str) -> str:
             dept = self._fuzzy_match_dept(dept)
             return self.cache.get_courses(dept)
 
-        # Second tool for model to use
+        # Tool 2: Get sections by course
         def get_sections(course: str) -> str:
             course = self._fuzzy_format_course(course)
             result = self.cache.get_sections(course)
-            if result.startswith("'") and "could not find corresponding department" in result:
+            if (
+                result.startswith("'")
+                and "could not find corresponding department" in result
+            ):
                 dept_guess = self._guess_course_correction(course)
                 if dept_guess:
                     return f"'{course}' could not be found. Did you mean '{dept_guess}'? I will assume that and proceed."
             return result
 
-        # Simplified wrapper for get_depts
+        # Tool 3: Get list of departments
         def simple_get_depts(*args) -> str:
             return "\n".join(
-                [f"{code}: {dept}" for code, dept in get_depts(
-                    self.cache.term).items()]
+                [f"{code}: {dept}" for code, dept in get_depts(self.cache.term).items()]
             )
 
-        # Set up tools for agent
-        # TODO Figure out how to get langchain to use tools properly
-        # TODO The responses should be used to suppliment the original prompt's response
-        # TODO Right now, it just summarizes the response from the tools
+        # Tool 4: Create a schedule from sections
+        def create_schedule_from_sections(sections: str) -> str:
+            sections = [sect.strip() for sect in sections.split(",") if sect.strip()]
+            sect_data = self.cache.sect_to_sched_dict(sections)
+            self.fig = create_schedule(sect_data)
+            self.fig_created = True
+            return "updated schedule"
+
         self.tools = [
             Tool(
                 name="get_departments",
@@ -107,6 +120,12 @@ class LangChainModel:
                 name="get_sections",
                 func=get_sections,
                 description="Takes a course code (CSCI 101, MATH 125, etc.) and returns all sections in the given term and course in csv format",
+            ),
+            Tool(
+                name="create_schedule",
+                func=create_schedule_from_sections,
+                description='Takes a str of section IDs seperated by commas (e.g., "29947,29953") and creates a schedule based on the given sections.'
+                + "If you want to create an empty schedule, pass an empty string.",
             ),
         ]
 
@@ -174,13 +193,14 @@ class LangChainModel:
 
         try:
             import streamlit as st
+
             debug_mode = st.session_state.get("_sidebar_state", {}).get(
-                "debug_mode", False) or st.session_state.get("debug_mode", False)
+                "debug_mode", False
+            ) or st.session_state.get("debug_mode", False)
 
             if debug_mode:
                 st.session_state["debug_logs"].append(
-                    "\n\n".join(
-                        [f"[{step[0].tool}] {step[1]}" for step in steps])
+                    "\n\n".join([f"[{step[0].tool}] {step[1]}" for step in steps])
                 )
                 response += "\n\n---\nTool Details:\n" + "\n".join(
                     f"[{step[0].tool}] {step[1]}" for step in steps

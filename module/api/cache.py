@@ -1,5 +1,5 @@
 import pandas as pd
-from ..util import conv_term, conv_dept, get_depts
+from ..util import conv_term, conv_dept, get_depts, time_to_decimal
 from .parse import get_courses_dfs
 
 
@@ -200,11 +200,54 @@ class Cache(object):
         # filter courses by term and department
         ret = self.sections[self.sections["term"] == self.term]
         ret = ret[ret["code"] == f"{dept.upper()} {course_num}"]
-        ret.drop(columns=["term", "dept", "code",
-                 "spaces_available"], inplace=True)
+        ret.drop(columns=["term", "dept", "code", "spaces_available"], inplace=True)
 
         if ret.empty:
             return f"'{course_code}' could not be found"
 
         # format as csv
         return ret.to_csv(index=False, sep=",")
+
+    def sect_to_sched_dict(self, sections: list[str]) -> list[dict[str : str | int]]:
+        """
+        Convert a list of sections to a list of dictionaries for schedule display.
+
+        Args:
+            sections (list[str]): A list of section IDs.
+                    Example: ["29903", "29910", "30397"]
+
+        Returns:
+            list[dict[str, str]]: A list of dictionaries containing section information.
+
+        Examples:
+            ```
+            # Convert a list of sections to a list of dictionaries for schedule display
+            sections = ["29903", "29910"]
+            schedule = my_cache.sect_to_sched_dict(sections)
+
+            print(schedule)
+            # [
+            #     {
+            #         "label": "CSCI 104<br>THH201<br>Carter Slocum",
+            #         "start_hour": 12.5,
+            #         "end_hour": 13.833333333333334,
+            #         "day": ["Tue", "Thu"],
+            #     },
+            #     {
+            #         "label": "CSCI 104<br> MHP101<br>Mukund Raghothaman",
+            #         "start_hour": 17.0,
+            #         "end_hour": 18.333333333333332,
+            #         "day": ["Mon", "Wed"],
+            #     },
+            # ]
+            ```
+        """
+        return [
+            {
+                "label": f"{row['code']} - {row['id']}<br>{row['location']}<br>{row['instructor']}",
+                "start_hour": time_to_decimal(row["start_time"]),
+                "end_hour": time_to_decimal(row["end_time"]),
+                "day": row["day"].split(", "),
+            }
+            for _, row in self.sections[self.sections["id"].isin(sections)].iterrows()
+        ]
