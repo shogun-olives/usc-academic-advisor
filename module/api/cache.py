@@ -137,7 +137,7 @@ class Cache(object):
         # check if the department is valid
         dept = conv_dept(dept)
         if dept is None:
-            return f"'{dept}' is not a valid department"
+            return f"'{dept}' is not a valid department. Use 'get_depts()' to see a list of valid departments."
 
         # Retrieve data if not already cached
         self.retrieve(dept)
@@ -192,7 +192,7 @@ class Cache(object):
         # check if the department is valid
         dept = conv_dept(dept)
         if dept is None:
-            return f"'{course_code}' could not find corresponding department"
+            return f"'{course_code}' could not find corresponding department. Use 'get_depts()' to see a list of valid departments."
 
         # Retrieve data if not already cached
         self.retrieve(dept)
@@ -203,7 +203,7 @@ class Cache(object):
         ret.drop(columns=["term", "dept", "code", "spaces_available"], inplace=True)
 
         if ret.empty:
-            return f"'{course_code}' could not be found"
+            return f"'{course_code}' could not be found."
 
         # format as csv
         return ret.to_csv(index=False, sep=",")

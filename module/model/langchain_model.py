@@ -93,38 +93,14 @@ class LangChainModel:
 
         # First tool for model to use
         def get_courses(dept: str) -> str:
-            """
-            Get all courses in the department.
-
-            Args:
-                dept (str): The department code.
-
-            Returns:
-                str: Formatted string of all courses in the given term and departments.
-            """
             return self.cache.get_courses(dept)
 
         # Second tool for model to use
         def get_sections(course: str) -> str:
-            """
-            Get all sections in the course.
-
-            Args:
-                course (str): The course code.
-
-            Returns:
-                str: Formatted string of all sections in the given term and courses.
-            """
             return self.cache.get_sections(course)
 
         # Simplified wrapper for get_depts
         def simple_get_depts(*args) -> str:
-            """
-            Get all departments in the given term.
-
-            Returns:
-                str: Formatted string of all departments in the given term.
-            """
             return "\n".join(
                 [f"{code}: {dept}" for code, dept in get_depts(self.cache.term).items()]
             )

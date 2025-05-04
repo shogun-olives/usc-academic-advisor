@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 def main() -> None:
     # give title to the page
     st.title("USC Course Chatbot")
@@ -18,9 +19,15 @@ def main() -> None:
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
 
+    if "debug_logs" not in st.session_state:
+        st.session_state["debug_logs"] = []
+
     # TODO Make a display in the sidebar to show the planned schedule
     # Sidebar
     st.sidebar.title("Schedule")
+
+    # ✅ Add Debug Mode toggle in sidebar
+    debug_mode = st.sidebar.checkbox("🔍 Enable Debug Mode")
 
     # update the interface with the previous messages
     for message in st.session_state["messages"]:
@@ -30,7 +37,8 @@ def main() -> None:
     # TODO Fix issue with prior chats becoming None once a new response is generated
     # create the chat interface
     if prompt := st.chat_input("Enter your query"):
-        st.session_state["messages"].append({"role": "user", "content": prompt})
+        st.session_state["messages"].append(
+            {"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
@@ -40,7 +48,17 @@ def main() -> None:
             st.markdown(response)
 
         # update the interface with the response
-        st.session_state["messages"].append({"role": "assistant", "content": response})
+        st.session_state["messages"].append(
+            {"role": "assistant", "content": response})
+
+        # ✅ If debug mode, show debug logs
+        if debug_mode:
+            st.markdown("---")
+            st.markdown("**🧪 Debug Output**")
+            for log in st.session_state.get("debug_logs", []):
+                st.code(log, language="text")
+            # Clear logs after display for next query
+            st.session_state["debug_logs"] = []
 
 
 if __name__ == "__main__":
