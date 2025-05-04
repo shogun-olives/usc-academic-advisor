@@ -1,6 +1,10 @@
 from module import LangChainModel
 import streamlit as st
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def main() -> None:
     # give title to the page
@@ -31,8 +35,9 @@ def main() -> None:
             st.markdown(prompt)
 
         # get response from the model
+        response = st.session_state["model"](prompt)
         with st.chat_message("assistant"):
-            response = st.write(st.session_state["model"](prompt))
+            st.markdown(response)
 
         # update the interface with the response
         st.session_state["messages"].append({"role": "assistant", "content": response})

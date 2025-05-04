@@ -79,7 +79,7 @@ class Section(object):
         Returns:
             output (str): A string representation of the Section object.
         """
-        return f"Professor {self.professor} ({self.section_id}): {", ".join(self.days)} {self.start_time} - {self.end_time} @{self.location} ({self.spaces_available - self.number_registered} spaces left)"
+        return f"Professor {self.professor} ({self.section_id}): {', '.join(self.days)} {self.start_time} - {self.end_time} @{self.location} ({self.spaces_available - self.number_registered} spaces left)"
 
 
 class Course(object):

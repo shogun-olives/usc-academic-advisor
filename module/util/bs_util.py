@@ -66,7 +66,7 @@ def scrape(web_url: str, overwrite: bool = False) -> bs:
     Returns:
         soup (BeautifulSoup): The BeautifulSoup object of the scraped webpage.
     """
-    fn = f"./data/cache/{web_url.removeprefix("https://").removesuffix("/").replace('/', '_')}.html"
+    fn = f"./data/cache/{web_url.removeprefix('https://').removesuffix('/').replace('/', '_')}.html"
     ctx = get_security_context()
 
     if overwrite or not os.path.exists(fn) or os.path.getsize(fn) == 0:

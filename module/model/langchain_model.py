@@ -116,7 +116,7 @@ class LangChainModel:
 
             if len(errors) > 0:
                 return (
-                    f"The following departments could not be found: {", ".join(errors)}\n\n"
+                    f"The following departments could not be found: {', '.join(errors)}\n\n"
                     + "\n\n".join(response)
                 )
             return "\n\n".join(response)
