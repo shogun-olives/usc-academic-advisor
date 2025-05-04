@@ -48,7 +48,7 @@
     <li>
       <a href="#contributions">Contributors</a>
       <ul>
-        <li><a href="#top contributors">Top Contributos</a></li>
+        <li><a href="#top-contributors">Top Contributos</a></li>
         <li><a href="#acknowledgements">Acknowledgements</a></li>
       </ul>
   </ol>
@@ -154,7 +154,7 @@ Before getting started, there are two requirements
   <img src="https://contrib.rocks/image?repo=shogun-olives/usc-academic-advisor" alt="contrib.rocks image" />
 </a>
 
-### Acknowledgments
+### Acknowledgements
 
 Prof. [Reza Jafarkhani](https://www.linkedin.com/in/reza-jafarkhani-a6065828/)
 Prof. [Allen Bolourchi](https://www.linkedin.com/in/allenbolourchi/)
