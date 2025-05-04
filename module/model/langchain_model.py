@@ -1,9 +1,11 @@
-from langchain.agents import initialize_agent, Tool
+from langchain.agents import initialize_agent, Tool, AgentExecutor
 from langchain.agents.agent_types import AgentType
 from langchain_community.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from ..util import get_openai_api_key, get_depts
 from ..api import Cache
+import re
+import difflib
 
 
 class LangChainModel:
@@ -53,33 +55,6 @@ class LangChainModel:
         temperature: float = 0.7,
         max_tokens: int = 512,
     ):
-        """
-        Initialize the LangChainModel class with the OpenAI API key and model parameters.
-
-        Args:
-            openai_api_key (str): The OpenAI API key. If not provided, it will be retrieved from the environment variable.
-            model (str): The OpenAI model to use (default: "gpt-3.5-turbo").
-            temperature (float): The temperature for the model (default: 0.7).
-            max_tokens (int): The maximum number of tokens to generate (default: 512).
-
-        Examples:
-            ```
-            # Initialize the LangChainModel class with environment API key
-            my_model = LangChainModel()
-
-            # Alternatively, initialize with specific parameters
-            my_model = LangChainModel(
-                openai_api_key="your_api_key",
-                model="gpt-3.5-turbo",
-                temperature=0.7,
-                max_tokens=100,
-            )
-
-            # To make a prediction
-            output = my_model("What is the name of the US President?")
-            print(output)
-            ```
-        """
         # Retrieve API key from environment variable if not provided
         self.openai_api_key = openai_api_key if openai_api_key else get_openai_api_key()
 
@@ -93,16 +68,24 @@ class LangChainModel:
 
         # First tool for model to use
         def get_courses(dept: str) -> str:
+            dept = self._fuzzy_match_dept(dept)
             return self.cache.get_courses(dept)
 
         # Second tool for model to use
         def get_sections(course: str) -> str:
-            return self.cache.get_sections(course)
+            course = self._fuzzy_format_course(course)
+            result = self.cache.get_sections(course)
+            if result.startswith("'") and "could not find corresponding department" in result:
+                dept_guess = self._guess_course_correction(course)
+                if dept_guess:
+                    return f"'{course}' could not be found. Did you mean '{dept_guess}'? I will assume that and proceed."
+            return result
 
         # Simplified wrapper for get_depts
         def simple_get_depts(*args) -> str:
             return "\n".join(
-                [f"{code}: {dept}" for code, dept in get_depts(self.cache.term).items()]
+                [f"{code}: {dept}" for code, dept in get_depts(
+                    self.cache.term).items()]
             )
 
         # Set up tools for agent
@@ -148,20 +131,61 @@ class LangChainModel:
             verbose=True,
         )
 
+        # Modified executor that returns intermediate steps
+        self.agent_executor = AgentExecutor.from_agent_and_tools(
+            agent=self.agent.agent,
+            tools=self.tools,
+            memory=self.memory,
+            verbose=True,
+            return_intermediate_steps=True,
+        )
+
+    def _fuzzy_match_dept(self, raw: str) -> str:
+        raw = raw.strip().lower()
+        dept_dict = get_depts(self.cache.term)
+        codes = list(dept_dict.keys())
+        names = list(dept_dict.values())
+        all_options = codes + names
+        match = difflib.get_close_matches(raw, all_options, n=1, cutoff=0.5)
+        if match:
+            for code, name in dept_dict.items():
+                if match[0].lower() in [code.lower(), name.lower()]:
+                    return code
+        return raw.upper()
+
+    def _fuzzy_format_course(self, course: str) -> str:
+        course = course.strip().upper().replace(" ", "")
+        match = re.match(r"([A-Z]{2,4})0*([0-9]{1,3}[A-Z]?)", course)
+        if match:
+            return f"{match.group(1)} {match.group(2)}"
+        return course
+
+    def _guess_course_correction(self, course_code: str) -> str:
+        course_code = course_code.strip().upper().replace(" ", "")
+        match = re.match(r"([A-Z]{1,4})([0-9]{1,3}[A-Z]?)", course_code)
+        if match:
+            return f"CSCI {match.group(2)}"
+        return ""
+
     def __call__(self, prompt: str) -> str:
-        """
-        Make a prediction using the OpenAI model.
+        result = self.agent_executor(prompt)
+        response = result["output"]
+        steps = result["intermediate_steps"]
 
-        Args:
-            prompt (str): The input prompt for the model.
+        try:
+            import streamlit as st
+            debug_mode = st.session_state.get("_sidebar_state", {}).get(
+                "debug_mode", False) or st.session_state.get("debug_mode", False)
 
-        Returns:
-            output (str): The generated text from the model.
+            if debug_mode:
+                st.session_state["debug_logs"].append(
+                    "\n\n".join(
+                        [f"[{step[0].tool}] {step[1]}" for step in steps])
+                )
+                response += "\n\n---\nTool Details:\n" + "\n".join(
+                    f"[{step[0].tool}] {step[1]}" for step in steps
+                )
+        except Exception:
+            pass
 
-        Examples:
-            ```
-            # To make a prediction
-            output = my_model("What is the name of the US President?")
-            ```
-        """
-        return self.agent.run(prompt)
+        return response

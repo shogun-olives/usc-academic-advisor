@@ -1,6 +1,7 @@
 import pandas as pd
 from ..util import conv_term, conv_dept, get_depts
 from .parse import get_courses_dfs
+import difflib
 
 
 class Cache(object):
@@ -190,9 +191,13 @@ class Cache(object):
         course_num = code_split[-1]
 
         # check if the department is valid
+        original_dept = dept
         dept = conv_dept(dept)
         if dept is None:
-            return f"'{course_code}' could not find corresponding department. Use 'get_depts()' to see a list of valid departments."
+            dept = self._fuzzy_match_dept_from_known(original_dept)
+            if dept is None:
+                return f"'{course_code}' could not find corresponding department. Use 'get_depts()' to see a list of valid departments."
+            return f"Did you mean '{dept} {course_num}'? Please try again with the full code."
 
         # Retrieve data if not already cached
         self.retrieve(dept)
@@ -200,10 +205,22 @@ class Cache(object):
         # filter courses by term and department
         ret = self.sections[self.sections["term"] == self.term]
         ret = ret[ret["code"] == f"{dept.upper()} {course_num}"]
-        ret.drop(columns=["term", "dept", "code", "spaces_available"], inplace=True)
+        ret.drop(columns=["term", "dept", "code",
+                 "spaces_available"], inplace=True)
 
         if ret.empty:
             return f"'{course_code}' could not be found."
 
         # format as csv
         return ret.to_csv(index=False, sep=",")
+
+    def _fuzzy_match_dept_from_known(self, raw: str) -> str | None:
+        raw = raw.strip().lower()
+        dept_dict = get_depts(self.term)
+        all_keys = list(dept_dict.keys()) + list(dept_dict.values())
+        matches = difflib.get_close_matches(raw, all_keys, n=1, cutoff=0.5)
+        if matches:
+            for k, v in dept_dict.items():
+                if matches[0].lower() in [k.lower(), v.lower()]:
+                    return k
+        return None
