@@ -9,6 +9,7 @@ import streamlit as st
 from ..util import fuzzy_match_dept, fuzzy_match_course, conv_dept
 from ..errors import DepartmentNotFound, CourseNotFound, SectionNotFound
 import re
+import os
 
 
 class LangChainModel:
@@ -73,37 +74,48 @@ class LangChainModel:
 
         # Tools =====================================================================================
         def get_courses(dept: str) -> str:
-            matched = fuzzy_match_dept(dept)
-            if matched is None:
-                raise DepartmentNotFound(dept)
+            depts = [x.split() for x in dept.split(",")]
+            ret = ""
+            for dept in depts:
+                matched = fuzzy_match_dept(dept)
+                if matched is None:
+                    raise DepartmentNotFound(dept)
 
-            ret = self.cache.get_courses(matched)
+                temp = self.cache.get_courses(matched)
 
-            # If the department was fuzzy matched, report it
-            if matched != conv_dept(dept.strip(), lower=True):
-                return (
-                    f"'{dept}' could not be found. Did you mean {matched}? "
-                    f"Here are the corresponding courses '{matched}':\n\n{ret}"
-                )
+                # If the department was fuzzy matched, report it
+                if matched != conv_dept(dept.strip(), lower=True):
+                    ret += (
+                        f"'{dept}' could not be found. Did you mean {matched}? "
+                        f"Here are the corresponding courses '{matched}':\n\n{temp}\n\n"
+                    )
+                    continue
 
-            # If the department is found, return the courses
-            return self.cache.get_courses(matched)
+                # If the department is found, return the courses
+                ret += f"Here are the courses for '{matched}':\n\n{temp}\n\n"
+
+            return ret
 
         def get_sections(course: str) -> str:
-            matched = fuzzy_match_course(course)
-            if matched is None:
-                raise CourseNotFound(course)
+            courses = [x.split() for x in course.split(",")]
+            ret = ""
+            for course in courses:
+                matched = fuzzy_match_course(course)
+                if matched is None:
+                    raise CourseNotFound(course)
 
-            ret = self.cache.get_sections(matched)
+                temp = self.cache.get_sections(matched)
 
-            # If the course was fuzzy matched, report it
-            if course.strip().upper().replace(" ", "") != matched.replace(" ", ""):
-                return (
-                    f"'{course}' could not be found. Did you mean '{matched}'? "
-                    f"Here are the corresponding sections '{matched}':\n\n{ret}"
-                )
+                # If the course was fuzzy matched, report it
+                if course.strip().upper().replace(" ", "") != matched.replace(" ", ""):
+                    ret += (
+                        f"'{course}' could not be found. Did you mean '{matched}'? "
+                        f"Here are the corresponding sections '{matched}':\n\n{temp}\n\n"
+                    )
+                    continue
 
-            # If the course is found, return the sections
+                # If the course is found, return the sections
+                ret += f"Here are the sections for '{matched}':\n\n{temp}\n\n"
             return ret
 
         def simple_get_depts(arg: str = None) -> str:
@@ -137,13 +149,13 @@ class LangChainModel:
             # If any sections were invalid, return an error message
             err_msg = []
             for inv in invalid:
-                match = re.match(r"[A-Z]{2,4}\s*\d{3}[A-Z]?", inv)
+                regex = re.match(r"[A-Z]{2,4}\s*\d{3}[A-Z]?", inv)
 
-                if not match:
+                if not regex:
                     err_msg.append(f"Invalid section ID: {inv}.")
                     continue
 
-                course = fuzzy_match_course(match)
+                course = fuzzy_match_course(regex.group())
                 if course is None:
                     err_msg.append(f"Invalid course code: {inv}.")
                 else:
@@ -177,15 +189,15 @@ class LangChainModel:
                     continue
 
                 # If section is not in the schedule, check if it's a valid section ID
-                match = re.match(r"[A-Z]{2,4}\s*\d{3}[A-Z]?", sec)
-                if not match:
+                regex = re.match(r"[A-Z]{2,4}\s*\d{3}[A-Z]?", sec)
+                if not regex:
                     invalid.append(
                         f"The given section ID: {sec} does not exist in the schedule."
                     )
                     continue
 
                 # If section is a valid course code, check if it exists in the schedule
-                course = fuzzy_match_course(match)
+                course = fuzzy_match_course(regex.group())
                 if course is None:
                     invalid.append(
                         f"The selected course code: {sec} is in an invalid format."
@@ -233,14 +245,14 @@ class LangChainModel:
                 handle_tool_error=True,
             ),
             Tool(
-                name="get_courses",
+                name="get_courses_from_department_name",
                 func=get_courses,
                 description="Takes a department code (CSCI, MATH, etc.) "
                 "and returns all courses in the given term and department in csv format",
                 handle_tool_error=True,
             ),
             Tool(
-                name="get_sections",
+                name="get_sections_from_course_code",
                 func=get_sections,
                 description="Takes a course code (CSCI 101, MATH 125, etc.) "
                 "and returns all sections in the given term and course in csv format",
@@ -250,14 +262,16 @@ class LangChainModel:
                 name="add_section_to_schedule",
                 func=add_sections_to_schedule,
                 description="Takes a str of section IDs seperated by commas "
-                '(e.g., "29947,29953") and adds these sections to the schedule.',
+                '(e.g., "29947,29953") and adds these sections to the schedule.'
+                "The section MUST be in ID format, if not, course cannot be added",
                 handle_tool_error=True,
             ),
             Tool(
                 name="remove_section_from_schedule",
                 func=remove_sections_from_schedule,
                 description="Takes a str of section IDs seperated by commas "
-                '(e.g., "29947,29953") and removes these sections from the schedule.',
+                '(e.g., "29947,29953") and removes these sections from the schedule.'
+                "The section MUST be in ID format, if not, course cannot be added",
                 handle_tool_error=True,
             ),
             Tool(
@@ -270,7 +284,7 @@ class LangChainModel:
 
         # LLM =======================================================================================
         self.memory = ConversationBufferMemory(
-            memory_key="chat_history", return_messages=True
+            memory_key="chat_history", output_key="output", return_messages=True
         )
 
         self.llm = ChatOpenAI(
@@ -280,15 +294,10 @@ class LangChainModel:
             max_tokens=self.dflt_max_tokens,
         )
 
-        prefix = """
-        You are a helpful USC course assistant.
-
-        When the user asks to add a course (like "add CSCI 103") without giving a section ID,
-        first show them the list of available sections using the `get_sections` tool,
-        then ask them to reply with the section ID they want.
-
-        Do not attempt to add a course if the section ID is missing or ambiguous.
-        """
+        with open(
+            os.path.join(os.path.dirname(__file__), "system_prompt.txt"), "r"
+        ) as f:
+            prefix = "\n".join(x.strip() for x in f.readlines())
 
         self.agent = initialize_agent(
             tools=self.tools,

@@ -165,6 +165,9 @@ class Cache(object):
         ret.drop(columns=["term", "dept"], inplace=True)
 
         # format as csv
+        if ret.empty:
+            return f"'{dept}' does not have any courses in the current term"
+
         return ret.to_csv(index=False, sep=",")
 
     def get_sections(self, course_code: str) -> str:

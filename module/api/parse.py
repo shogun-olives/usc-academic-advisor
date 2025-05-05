@@ -125,11 +125,7 @@ def get_courses_dfs(
             )
 
     # convert the list of dictionaries to a dataframe
-    courses = pd.DataFrame(
-        courses, columns=["code", "dept", "term", "title", "description", "units"])
-    sections = pd.DataFrame(sections, columns=[
-        "id", "code", "dept", "term", "instructor", "location",
-        "start_time", "end_time", "day", "spaces_left", "number_registered", "spaces_available"
-    ])
+    courses = pd.DataFrame(courses)
+    sections = pd.DataFrame(sections)
 
     return courses, sections
