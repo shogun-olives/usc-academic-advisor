@@ -5,8 +5,10 @@ from langchain.memory import ConversationBufferMemory
 from ..util import get_openai_api_key, get_depts
 from ..api import Cache
 from ..ui import create_schedule
+import streamlit as st
+from ..util import fuzzy_match_dept, fuzzy_match_course, conv_dept
+from ..errors import DepartmentNotFound, CourseNotFound, SectionNotFound
 import re
-import difflib
 
 
 class LangChainModel:
@@ -58,6 +60,7 @@ class LangChainModel:
         temperature: float = 0.7,
         max_tokens: int = 512,
     ):
+        # Attributes ===============================================================================
         self.openai_api_key = openai_api_key if openai_api_key else get_openai_api_key()
         self.cache = Cache()
         self.fig = create_schedule()
@@ -68,91 +71,204 @@ class LangChainModel:
         self.section_ids = []
         self.last_course = None
 
+        # Tools =====================================================================================
         def get_courses(dept: str) -> str:
-            dept = self._fuzzy_match_dept(dept)
-            return self.cache.get_courses(dept)
+            matched = fuzzy_match_dept(dept)
+            if matched is None:
+                raise DepartmentNotFound(dept)
 
-        def get_sections(course: str) -> str:
-            course = course.strip()
-            if course.lower() in ["", "that course", "this course", "the course", "那门课", "这门课"]:
-                if self.last_course is None:
-                    return "I'm not sure which course you're referring to. Please specify the course code (e.g., 'CSCI 103')."
-                course = self.last_course
+            ret = self.cache.get_courses(matched)
 
-            course = self._fuzzy_format_course(course)
-            result = self.cache.get_sections(course)
-            if result.startswith("'") and "could not find corresponding department" in result:
-                dept_guess = self._guess_course_correction(course)
-                if dept_guess:
-                    return f"'{course}' could not be found. Did you mean '{dept_guess}'? I will assume that and proceed."
-
-            self.last_course = course
-            return result
-
-        def simple_get_depts(*args) -> str:
-            return "\n".join(
-                [f"{code}: {dept}" for code, dept in get_depts(
-                    self.cache.term).items()]
-            )
-
-        def create_schedule_from_sections(sections_str: str) -> str:
-            if not sections_str.strip():
-                raise ValueError(
-                    "No section ID provided. Please provide a section ID (e.g., '29920').")
-
-            sections = [sect.strip()
-                        for sect in sections_str.split(",") if sect.strip()]
-            available_ids = set(self.cache.sections["id"].astype(str).tolist())
-            unknown_ids = [s for s in sections if s not in available_ids]
-
-            if unknown_ids:
-                course_codes = [s for s in sections if re.match(
-                    r"[A-Z]{2,4}\s*\d{3}[A-Z]?", s)]
-                if course_codes:
-                    course = course_codes[0]
-                    all_sections = self.cache.get_sections(course)
-                    raise ValueError(
-                        f"You didn’t specify a valid section ID. The available sections for {course} are as follows:\n\n{all_sections}\n\nPlease provide a valid section ID to add this course."
-                    )
-                raise ValueError(
-                    f"Section ID(s) not found: {', '.join(unknown_ids)}. Please check and try again."
+            # If the department was fuzzy matched, report it
+            if matched != conv_dept(dept.strip(), lower=True):
+                return (
+                    f"'{dept}' could not be found. Did you mean {matched}? "
+                    f"Here are the corresponding courses '{matched}':\n\n{ret}"
                 )
 
-            self.section_ids.extend(sections)
-            self.section_ids = list(dict.fromkeys(self.section_ids))
-            sect_data = self.cache.sect_to_sched_dict(self.section_ids)
-            self.fig = create_schedule(sect_data)
-            self.fig_created = True
-            return f"Schedule updated with section(s): {', '.join(sections)}."
+            # If the department is found, return the courses
+            return self.cache.get_courses(matched)
+
+        def get_sections(course: str) -> str:
+            matched = fuzzy_match_course(course)
+            if matched is None:
+                raise CourseNotFound(course)
+
+            ret = self.cache.get_sections(matched)
+
+            # If the course was fuzzy matched, report it
+            if course.strip().upper().replace(" ", "") != matched.replace(" ", ""):
+                return (
+                    f"'{course}' could not be found. Did you mean '{matched}'? "
+                    f"Here are the corresponding sections '{matched}':\n\n{ret}"
+                )
+
+            # If the course is found, return the sections
+            return ret
+
+        def simple_get_depts(arg: str = None) -> str:
+            return "\n".join(
+                [f"{code}: {dept}" for code, dept in get_depts(self.cache.term).items()]
+            )
+
+        def add_sections_to_schedule(sections: str) -> str:
+            # convert str to list of sections
+            sections = [s.strip() for s in sections.split(",") if s.strip()]
+
+            # check which sections are valid
+            valid, invalid = [], []
+            for sec in sections:
+                if self.cache.is_valid_section(sec):
+                    self.section_ids.append(sec)
+                    valid.append(sec)
+                else:
+                    invalid.append(sec)
+
+            # If any sections were added, create a new schedule
+            if valid:
+                sect_data = self.cache.sect_to_sched_dict(self.section_ids)
+                self.fig = create_schedule(sect_data)
+                self.fig_created = True
+
+            # If no sections were invalid, return a success message
+            if not invalid:
+                return f"Successfully added sections: {', '.join(valid)}."
+
+            # If any sections were invalid, return an error message
+            err_msg = []
+            for inv in invalid:
+                match = re.match(r"[A-Z]{2,4}\s*\d{3}[A-Z]?", inv)
+
+                if not match:
+                    err_msg.append(f"Invalid section ID: {inv}.")
+                    continue
+
+                course = fuzzy_match_course(match)
+                if course is None:
+                    err_msg.append(f"Invalid course code: {inv}.")
+                else:
+                    err_msg.append(
+                        "You specified a course code instead of a section ID. "
+                        f"The available sections for {course} are as follows:"
+                        f"\n{self.cache.get_sections(course)}\n"
+                        "Please provide a valid section ID to add this course."
+                    )
+
+            return (
+                f"Successfully added sections: {', '.join(valid)}.\n"
+                "However, the following errors occured\n"
+                f"{'\n'.join(err_msg)}"
+            )
+
+        def remove_sections_from_schedule(sections: str) -> str:
+            # convert str to list of sections
+            sections = [s.strip() for s in sections.split(",") if s.strip()]
+            existing_sections = {
+                self.cache.get_section_data(s)["code"]: s for s in self.section_ids
+            }
+
+            # check which sections are valid
+            valid, invalid = [], []
+            for sec in sections:
+                # If section is in the schedule, remove it
+                if sec in self.section_ids:
+                    self.section_ids.remove(sec)
+                    valid.append(sec)
+                    continue
+
+                # If section is not in the schedule, check if it's a valid section ID
+                match = re.match(r"[A-Z]{2,4}\s*\d{3}[A-Z]?", sec)
+                if not match:
+                    invalid.append(
+                        f"The given section ID: {sec} does not exist in the schedule."
+                    )
+                    continue
+
+                # If section is a valid course code, check if it exists in the schedule
+                course = fuzzy_match_course(match)
+                if course is None:
+                    invalid.append(
+                        f"The selected course code: {sec} is in an invalid format."
+                    )
+                    continue
+
+                if course in existing_sections:
+                    self.section_ids.remove(existing_sections[course])
+                    valid.append(existing_sections[course])
+                    continue
+
+                invalid.append(
+                    f"The selected course code: {sec} is not in the schedule."
+                )
+
+            # If any sections were removed, create a new schedule
+            if valid:
+                sect_data = self.cache.sect_to_sched_dict(self.section_ids)
+                self.fig = create_schedule(sect_data)
+                self.fig_created = True
+
+            # If no sections were invalid, return a success message
+            if not invalid:
+                return f"Successfully removed sections: {', '.join(valid)}."
+
+            # If any sections were invalid, return an error message
+            return (
+                f"Successfully removed sections: {', '.join(valid)}.\n"
+                "However, the following errors occured\n"
+                f"{'\n'.join(invalid)}"
+            )
+
+        def remove_all_sections(arg: str = None) -> str:
+            self.section_ids = []
+            self.fig = create_schedule()
+            self.fig_created = False
+            return "All sections have been removed from the schedule."
 
         self.tools = [
             Tool(
                 name="get_departments",
                 func=simple_get_depts,
-                description="Takes no inputs and gives a complete list of departments and their codes for the given term",
+                description="Takes no inputs and gives a complete list "
+                "of departments and their codes for the given term",
                 handle_tool_error=True,
             ),
             Tool(
                 name="get_courses",
                 func=get_courses,
-                description="Takes a department code (CSCI, MATH, etc.) and returns all courses in the given term and department in csv format",
+                description="Takes a department code (CSCI, MATH, etc.) "
+                "and returns all courses in the given term and department in csv format",
                 handle_tool_error=True,
             ),
             Tool(
                 name="get_sections",
                 func=get_sections,
-                description="Takes a course code (CSCI 101, MATH 125, etc.) and returns all sections in the given term and course in csv format",
+                description="Takes a course code (CSCI 101, MATH 125, etc.) "
+                "and returns all sections in the given term and course in csv format",
                 handle_tool_error=True,
             ),
             Tool(
-                name="create_schedule",
-                func=create_schedule_from_sections,
-                description='Takes a str of section IDs seperated by commas (e.g., "29947,29953") and creates a schedule based on the given sections.'
-                + "If you want to create an empty schedule, pass an empty string.",
+                name="add_section_to_schedule",
+                func=add_sections_to_schedule,
+                description="Takes a str of section IDs seperated by commas "
+                '(e.g., "29947,29953") and adds these sections to the schedule.',
+                handle_tool_error=True,
+            ),
+            Tool(
+                name="remove_section_from_schedule",
+                func=remove_sections_from_schedule,
+                description="Takes a str of section IDs seperated by commas "
+                '(e.g., "29947,29953") and removes these sections from the schedule.',
+                handle_tool_error=True,
+            ),
+            Tool(
+                name="remove_all_sections",
+                func=remove_all_sections,
+                description="Takes no inputs and removes all sections from the schedule.",
                 handle_tool_error=True,
             ),
         ]
 
+        # LLM =======================================================================================
         self.memory = ConversationBufferMemory(
             memory_key="chat_history", return_messages=True
         )
@@ -191,40 +307,12 @@ class LangChainModel:
             return_intermediate_steps=True,
         )
 
-    def _fuzzy_match_dept(self, raw: str) -> str:
-        raw = raw.strip().lower()
-        dept_dict = get_depts(self.cache.term)
-        codes = list(dept_dict.keys())
-        names = list(dept_dict.values())
-        all_options = codes + names
-        match = difflib.get_close_matches(raw, all_options, n=1, cutoff=0.5)
-        if match:
-            for code, name in dept_dict.items():
-                if match[0].lower() in [code.lower(), name.lower()]:
-                    return code
-        return raw.upper()
-
-    def _fuzzy_format_course(self, course: str) -> str:
-        course = course.strip().upper().replace(" ", "")
-        match = re.match(r"([A-Z]{2,4})0*([0-9]{1,3}[A-Z]?)", course)
-        if match:
-            return f"{match.group(1)} {match.group(2)}"
-        return course
-
-    def _guess_course_correction(self, course_code: str) -> str:
-        course_code = course_code.strip().upper().replace(" ", "")
-        match = re.match(r"([A-Z]{1,4})([0-9]{1,3}[A-Z]?)", course_code)
-        if match:
-            return f"CSCI {match.group(2)}"
-        return ""
-
     def __call__(self, prompt: str) -> str:
         result = self.agent_executor(prompt)
         response = result["output"]
         steps = result["intermediate_steps"]
 
         try:
-            import streamlit as st
 
             debug_mode = st.session_state.get("_sidebar_state", {}).get(
                 "debug_mode", False
@@ -232,8 +320,7 @@ class LangChainModel:
 
             if debug_mode:
                 st.session_state["debug_logs"].append(
-                    "\n\n".join(
-                        [f"[{step[0].tool}] {step[1]}" for step in steps])
+                    "\n\n".join([f"[{step[0].tool}] {step[1]}" for step in steps])
                 )
                 response += "\n\n---\nTool Details:\n" + "\n".join(
                     f"[{step[0].tool}] {step[1]}" for step in steps

@@ -1,6 +1,12 @@
 import pandas as pd
 from ..util import conv_term, conv_dept, get_depts, time_to_decimal
 from .parse import get_courses_dfs
+from ..errors import (
+    DepartmentNotFound,
+    CourseNotFound,
+    SectionNotFound,
+    ScheduleConflictError,
+)
 
 
 class Cache(object):
@@ -56,8 +62,19 @@ class Cache(object):
         self.term = conv_term(term)
         self.cached = set()
         self.depts = get_depts(code_is_key=False)
-        self.courses = pd.DataFrame()
-        self.sections = pd.DataFrame()
+        self.courses = pd.DataFrame(columns=["code", "title", "description", "units"])
+        self.sections = pd.DataFrame(
+            columns=[
+                "id",
+                "instructor",
+                "location",
+                "start_time",
+                "end_time",
+                "day",
+                "spaces_left",
+                "number_registered",
+            ]
+        )
 
     def update_term(self, term: str | int) -> None:
         """
@@ -137,7 +154,7 @@ class Cache(object):
         # check if the department is valid
         dept = conv_dept(dept)
         if dept is None:
-            return f"'{dept}' is not a valid department"
+            raise DepartmentNotFound(dept)
 
         # Retrieve data if not already cached
         self.retrieve(dept)
@@ -192,7 +209,7 @@ class Cache(object):
         # check if the department is valid
         dept = conv_dept(dept)
         if dept is None:
-            return f"'{course_code}' could not find corresponding department"
+            raise DepartmentNotFound(course_code)
 
         # Retrieve data if not already cached
         self.retrieve(dept)
@@ -203,7 +220,7 @@ class Cache(object):
         ret.drop(columns=["term", "dept", "code", "spaces_available"], inplace=True)
 
         if ret.empty:
-            return f"'{course_code}' could not be found"
+            raise CourseNotFound(course_code)
 
         # format as csv
         return ret.to_csv(index=False, sep=",")
@@ -242,7 +259,12 @@ class Cache(object):
             # ]
             ```
         """
-        return [
+        # Check if all sections are valid
+        for section in sections:
+            if section not in self.sections["id"].values:
+                raise SectionNotFound(section)
+
+        data = [
             {
                 "label": f"{row['code']} - {row['id']}<br>{row['location']}<br>{row['instructor']}",
                 "start_hour": time_to_decimal(row["start_time"]),
@@ -251,3 +273,69 @@ class Cache(object):
             }
             for _, row in self.sections[self.sections["id"].isin(sections)].iterrows()
         ]
+
+        # Check for any scheduling conflicts
+        for i, sect1 in enumerate(data):
+            for sect2 in data[i + 1 :]:
+                if set(sect1["day"]) & set(sect2["day"]):
+                    if not (
+                        sect1["end_hour"] <= sect2["start_hour"]
+                        or sect2["end_hour"] <= sect1["start_hour"]
+                    ):
+                        raise ScheduleConflictError(sect1, sect2)
+
+        # If no conflicts, return data
+        return data
+
+    def is_valid_section(self, section: str) -> bool:
+        """
+        Check if a section is valid.
+
+        Args:
+            section (str): The section ID.
+
+        Returns:
+            output (bool): True if the section is valid, False otherwise.
+
+        Examples:
+            ```
+            # Check if a section is valid
+            is_valid = my_cache.is_valid_section("29903")
+            print(is_valid)
+            # Output: True
+
+        ```
+        """
+        return section in self.sections["id"].values
+
+    def get_section_data(self, section: str) -> dict[str, str | int]:
+        """
+        Get data for a specific section.
+
+        Args:
+            section (str): The section ID.
+
+        Returns:
+            output (dict[str, str | int]): A dictionary containing section information.
+
+        Examples:
+            ```
+            # Get data for a specific section
+            section_data = my_cache.get_section_data("29903")
+            print(section_data)
+            # Output: {
+            #     "id": "29903",
+            #     "instructor": "Carter Slocum",
+            #     "location": "THH201",
+            #     "start_time": "12:30 PM",
+            #     "end_time": "01:50 PM",
+            #     "day": ["Tue", "Thu"],
+            #     "spaces_left": 33,
+            #     "number_registered": 87,
+            # }
+            ```
+        """
+        if not self.is_valid_section(section):
+            raise SectionNotFound(section)
+
+        return self.sections[self.sections["id"] == section].iloc[0].to_dict()
