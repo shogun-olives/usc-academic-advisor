@@ -215,7 +215,7 @@ class LangChainModel:
             return (
                 f"Successfully removed sections: {', '.join(valid)}.\n"
                 "However, the following errors occured\n"
-                f"{'\n'.join(invalid)}"
+                "\n".join(invalid)
             )
 
         def remove_all_sections(arg: str = None) -> str:
