@@ -46,12 +46,12 @@ class ScheduleConflictError(Exception):
         self.sect_1_time = (
             f"{decimal_to_time(section_1['start_hour'][0])} - "
             f"{decimal_to_time(section_1['end_hour'][1])} on "
-            f"{", ".join(section_1['days'])}"
+            ", ".join(section_1["days"])
         )
         self.sect_2_time = (
             f"{decimal_to_time(section_2['start_hour'][0])} - "
             f"{decimal_to_time(section_2['end_hour'][1])} on "
-            f"{", ".join(section_2['days'])}"
+            ", ".join(section_2["days"])
         )
         super().__init__(
             f"Schedule conflict detected:\n"
