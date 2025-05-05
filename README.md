@@ -141,6 +141,7 @@ Before getting started, there are two requirements
 -   [ ] Fine Tuning
     -   [ ] Create data for custom model features
     -   [ ] Train model and continue fine tuning
+    -   [ ] Prompt engineering to perfect responses
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
