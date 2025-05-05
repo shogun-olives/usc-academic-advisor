@@ -157,7 +157,7 @@ class LangChainModel:
             return (
                 f"Successfully added sections: {', '.join(valid)}.\n"
                 "However, the following errors occured\n"
-                f"{'\n'.join(err_msg)}"
+                "\n".join(err_msg)
             )
 
         def remove_sections_from_schedule(sections: str) -> str:
