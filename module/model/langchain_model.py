@@ -7,7 +7,7 @@ from ..api import Cache
 from ..ui import create_schedule
 import streamlit as st
 from ..util import fuzzy_match_dept, fuzzy_match_course, conv_dept
-from ..errors import DepartmentNotFound, CourseNotFound, SectionNotFound
+from ..errors import DepartmentNotFound, CourseNotFound
 import re
 import os
 
@@ -43,7 +43,7 @@ class LangChainModel:
         # Alternatively, initialize with specific parameters
         my_model = LangChainModel(
             openai_api_key="your_api_key",
-            model="gpt-3.5-turbo",
+            model="gpt-4-1106-preview",
             temperature=0.7,
             max_tokens=100,
         )
@@ -57,7 +57,7 @@ class LangChainModel:
     def __init__(
         self,
         openai_api_key: str = None,
-        model: str = "gpt-3.5-turbo",
+        model: str = "gpt-4-1106-preview",
         temperature: float = 0.7,
         max_tokens: int = 512,
     ):
