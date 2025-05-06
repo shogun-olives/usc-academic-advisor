@@ -23,10 +23,13 @@ def conv_time(time_str: str) -> str:
         time = conv_time("invalid_time")
         ```
     """
+    if isinstance(time_str, list):
+        time_str = time_str[0]
+
     try:
         return datetime.strptime(time_str, "%H:%M").strftime("%I:%M %p")
     except ValueError:
-        return time_str
+        return str(time_str)
 
 
 def conv_days(days_str: str) -> str:

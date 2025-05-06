@@ -74,7 +74,7 @@ class LangChainModel:
 
         # Tools =====================================================================================
         def get_courses(dept: str) -> str:
-            depts = [x.split() for x in dept.split(",")]
+            depts = [x.strip() for x in dept.split(",")]
             ret = ""
             for dept in depts:
                 matched = fuzzy_match_dept(dept)
@@ -97,7 +97,7 @@ class LangChainModel:
             return ret
 
         def get_sections(course: str) -> str:
-            courses = [x.split() for x in course.split(",")]
+            courses = [x.strip() for x in course.split(",")]
             ret = ""
             for course in courses:
                 matched = fuzzy_match_course(course)
@@ -119,8 +119,16 @@ class LangChainModel:
             return ret
 
         def simple_get_depts(arg: str = None) -> str:
-            return "\n".join(
-                [f"{code}: {dept}" for code, dept in get_depts(self.cache.term).items()]
+            return (
+                "The following is a list of departments at the University of Southern California.\n"
+                "For more information about courses, use `get_courses_from_department`"
+                "with the corresponding department code\n"
+                + "\n".join(
+                    [
+                        f"{code}: {dept}"
+                        for code, dept in get_depts(self.cache.term).items()
+                    ]
+                )
             )
 
         def add_sections_to_schedule(sections: str) -> str:
@@ -245,7 +253,7 @@ class LangChainModel:
                 handle_tool_error=True,
             ),
             Tool(
-                name="get_courses_from_department_name",
+                name="get_courses_from_department",
                 func=get_courses,
                 description="Takes a department code (CSCI, MATH, etc.) "
                 "and returns all courses in the given term and department in csv format",

@@ -14,8 +14,30 @@ class Cache(object):
     A class to represent a cache for storing data.
 
     Attributes:
-        term (str | int): The current term to scrape data from (e.g., "Fall 2025" or "20253").
-        cache (dict): A dictionary to store cached data.
+        term (str | int): The term code (e.g., "20253").
+        cached (set): A set of cached department and term pairs.
+        depts (dict): A dictionary of department codes and names.
+        courses (pd.DataFrame): A DataFrame containing course data.
+            - code (str): The course code (e.g., "CSCI 100").
+            - dept (str): The department code (e.g., "CSCI").
+            - term (str | int): The term code (e.g., "20253").
+            - title (str): The course title.
+            - description (str): The course description.
+            - units (int): The number of units for the course.
+        sections (pd.DataFrame): A DataFrame containing section data.
+            - id (str): The section ID.
+            - code (str): The course code (e.g., "CSCI 100").
+            - dept (str): The department code (e.g., "CSCI").
+            - term (str | int): The term code (e.g., "20253").
+            - title (str): The course title.
+            - instructor (str): The instructor name.
+            - location (str): The location of the section.
+            - start_time (str): The start time of the section.
+            - end_time (str): The end time of the section.
+            - day (str): The days of the week the section is held.
+            - spaces_left (int): The number of spaces left in the section.
+            - number_registered (int): The number of students registered for the section.
+
 
     Examples:
         Initialization:
@@ -62,10 +84,23 @@ class Cache(object):
         self.term = conv_term(term)
         self.cached = set()
         self.depts = get_depts(code_is_key=False)
-        self.courses = pd.DataFrame(columns=["code", "title", "description", "units"])
+        self.courses = pd.DataFrame(
+            columns=[
+                "code",
+                "dept",
+                "term",
+                "title",
+                "description",
+                "units",
+            ]
+        )
         self.sections = pd.DataFrame(
             columns=[
                 "id",
+                "code",
+                "dept",
+                "term",
+                "title",
                 "instructor",
                 "location",
                 "start_time",
@@ -73,6 +108,7 @@ class Cache(object):
                 "day",
                 "spaces_left",
                 "number_registered",
+                "spaces_available",
             ]
         )
 
@@ -186,10 +222,10 @@ class Cache(object):
             sections = my_cache.get_sections("CSCI 104")
 
             print(sections)
-            # id,instructor,location,start_time,end_time,day,spaces_left,number_registered
-            # 29903,Carter Slocum,THH201,12:30 PM,01:50 PM,"Tue, Thu",33,87
-            # 29910,Mukund Raghothaman,MHP101,05:00 PM,06:20 PM,"Mon, Wed",64,6
-            # 30397,Carter Slocum,SGM124,09:30 AM,10:50 AM,"Tue, Thu",74,46
+            # id,title,instructor,location,start_time,end_time,day,spaces_left,number_registered
+            # 29903,Data Structures,Carter Slocum,THH201,12:30 PM,01:50 PM,"Tue, Thu",33,87
+            # 29910,Data Structures,Mukund Raghothaman,MHP101,05:00 PM,06:20 PM,"Mon, Wed",64,6
+            # 30397,Data Structures,Carter Slocum,SGM124,09:30 AM,10:50 AM,"Tue, Thu",74,46
 
             # If the course number department is not found, an error message will be returned
             sections = my_cache.get_sections("INVALID_COURSE")
@@ -248,13 +284,13 @@ class Cache(object):
             print(schedule)
             # [
             #     {
-            #         "label": "CSCI 104<br>THH201<br>Carter Slocum",
+            #         "label": "Data Structures<br>CSCI 104<br>THH201<br>Carter Slocum",
             #         "start_hour": 12.5,
             #         "end_hour": 13.833333333333334,
             #         "day": ["Tue", "Thu"],
             #     },
             #     {
-            #         "label": "CSCI 104<br> MHP101<br>Mukund Raghothaman",
+            #         "label": "Data Structures<br>CSCI 104<br> MHP101<br>Mukund Raghothaman",
             #         "start_hour": 17.0,
             #         "end_hour": 18.333333333333332,
             #         "day": ["Mon", "Wed"],
@@ -269,7 +305,7 @@ class Cache(object):
 
         data = [
             {
-                "label": f"{row['code']} - {row['id']}<br>{row['location']}<br>{row['instructor']}",
+                "label": f"{row['title']}<br>{row['code']} - {row['id']}<br>{row['location']}<br>{row['instructor']}",
                 "start_hour": time_to_decimal(row["start_time"]),
                 "end_hour": time_to_decimal(row["end_time"]),
                 "day": row["day"].split(", "),
