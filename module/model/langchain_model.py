@@ -2,7 +2,6 @@ from langchain.agents import initialize_agent, Tool, AgentExecutor
 from langchain.agents.agent_types import AgentType
 from langchain_community.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
-from langchain_core.output_parsers import BaseOutputParser
 from ..util import get_openai_api_key, get_depts
 from ..util import fuzzy_match_dept, fuzzy_match_course
 from ..errors import DepartmentNotFound, CourseNotFound
@@ -11,17 +10,6 @@ from ..ui import create_schedule
 import streamlit as st
 import re
 import os
-import json
-
-
-class CustomParser(BaseOutputParser):
-    def parse(self, text: str):
-        try:
-            # If it’s a JSON tool call, parse it
-            return json.loads(text)
-        except json.JSONDecodeError:
-            # Otherwise, assume it’s markdown text
-            return text.strip()
 
 
 class LangChainModel:
@@ -342,7 +330,6 @@ class LangChainModel:
             memory=self.memory,
             verbose=True,
             agent_kwargs={"prefix": prefix},
-            output_parser=CustomParser(),
         )
 
         self.agent_executor = AgentExecutor.from_agent_and_tools(
@@ -351,6 +338,7 @@ class LangChainModel:
             memory=self.memory,
             verbose=True,
             return_intermediate_steps=True,
+            andle_parsing_errors=True,
         )
 
     def __call__(self, prompt: str) -> str:

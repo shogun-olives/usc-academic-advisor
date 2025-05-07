@@ -44,13 +44,13 @@ class ScheduleConflictError(Exception):
         self.sect_1_id = section_1["label"].split("<br>")[0]
         self.sect_2_id = section_2["label"].split("<br>")[0]
         self.sect_1_time = (
-            f"{decimal_to_time(section_1['start_hour'][0])} - "
-            f"{decimal_to_time(section_1['end_hour'][1])} on "
+            f"{decimal_to_time(section_1['start_hour'])} - "
+            f"{decimal_to_time(section_1['end_hour'])} on "
             ", ".join(section_1["days"])
         )
         self.sect_2_time = (
-            f"{decimal_to_time(section_2['start_hour'][0])} - "
-            f"{decimal_to_time(section_2['end_hour'][1])} on "
+            f"{decimal_to_time(section_2['start_hour'])} - "
+            f"{decimal_to_time(section_2['end_hour'])} on "
             ", ".join(section_2["days"])
         )
         super().__init__(
