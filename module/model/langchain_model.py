@@ -2,14 +2,27 @@ from langchain.agents import initialize_agent, Tool, AgentExecutor
 from langchain.agents.agent_types import AgentType
 from langchain_community.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
+from langchain_core.output_parsers import BaseOutputParser
 from ..util import get_openai_api_key, get_depts
+from ..util import fuzzy_match_dept, fuzzy_match_course
+from ..errors import DepartmentNotFound, CourseNotFound
 from ..api import Cache
 from ..ui import create_schedule
 import streamlit as st
-from ..util import fuzzy_match_dept, fuzzy_match_course, conv_dept
-from ..errors import DepartmentNotFound, CourseNotFound
+from datetime import datetime
 import re
 import os
+import json
+
+
+class CustomParser(BaseOutputParser):
+    def parse(self, text: str):
+        try:
+            # If it’s a JSON tool call, parse it
+            return json.loads(text)
+        except json.JSONDecodeError:
+            # Otherwise, assume it’s markdown text
+            return text.strip()
 
 
 class LangChainModel:
@@ -27,6 +40,7 @@ class LangChainModel:
         dflt_model (str): The default OpenAI model to use.
         dflt_temp (float): The default temperature for the model.
         dflt_max_tokens (int): The default maximum number of tokens to generate.
+        log_fn (str): The file name for logging the model's output.
         cache (Cache): An instance of the Cache class for storing data.
         fig (Figure): A Plotly Figure that stores the current course schedule.
         fig_created (bool): A flag indicating whether the schedule has been created.
@@ -43,7 +57,7 @@ class LangChainModel:
         # Alternatively, initialize with specific parameters
         my_model = LangChainModel(
             openai_api_key="your_api_key",
-            model="gpt-4-1106-preview",
+            model="gpt-4",
             temperature=0.7,
             max_tokens=100,
         )
@@ -57,7 +71,7 @@ class LangChainModel:
     def __init__(
         self,
         openai_api_key: str = None,
-        model: str = "gpt-4-1106-preview",
+        model: str = "gpt-4",
         temperature: float = 0.7,
         max_tokens: int = 512,
     ):
@@ -84,9 +98,9 @@ class LangChainModel:
                 temp = self.cache.get_courses(matched)
 
                 # If the department was fuzzy matched, report it
-                if matched != conv_dept(dept.strip(), lower=True):
+                if dept.strip().upper() != matched.replace(" ", ""):
                     ret += (
-                        f"'{dept}' could not be found. Did you mean {matched}? "
+                        f"'{dept}' could not be found. Did you mean '{matched}'? "
                         f"Here are the corresponding courses '{matched}':\n\n{temp}\n\n"
                     )
                     continue
@@ -123,7 +137,7 @@ class LangChainModel:
                 "The following is a list of departments at the University of Southern California.\n"
                 "For more information about courses, use `get_courses_from_department`"
                 "with the corresponding department code\n"
-                + "\n".join(
+                + ", ".join(
                     [
                         f"{code}: {dept}"
                         for code, dept in get_depts(self.cache.term).items()
@@ -244,6 +258,14 @@ class LangChainModel:
             self.fig_created = False
             return "All sections have been removed from the schedule."
 
+        def get_current_enrollment(arg: str = None) -> str:
+            if not self.section_ids:
+                return "No sections have been added to the schedule."
+
+            return self.cache.get_sections_data(self.section_ids).to_csv(
+                index=False, sep=",", header=True
+            )
+
         self.tools = [
             Tool(
                 name="get_departments",
@@ -288,6 +310,13 @@ class LangChainModel:
                 description="Takes no inputs and removes all sections from the schedule.",
                 handle_tool_error=True,
             ),
+            Tool(
+                name="get_current_enrollment",
+                func=get_current_enrollment,
+                description="Takes no inputs and returns the current enrollment "
+                "for all sections in the schedule in csv format. Lists unit counts",
+                handle_tool_error=True,
+            ),
         ]
 
         # LLM =======================================================================================
@@ -314,6 +343,7 @@ class LangChainModel:
             memory=self.memory,
             verbose=True,
             agent_kwargs={"prefix": prefix},
+            output_parser=CustomParser(),
         )
 
         self.agent_executor = AgentExecutor.from_agent_and_tools(

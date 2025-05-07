@@ -109,6 +109,7 @@ class Cache(object):
                 "spaces_left",
                 "number_registered",
                 "spaces_available",
+                "units",
             ]
         )
 
@@ -222,10 +223,10 @@ class Cache(object):
             sections = my_cache.get_sections("CSCI 104")
 
             print(sections)
-            # id,title,instructor,location,start_time,end_time,day,spaces_left,number_registered
-            # 29903,Data Structures,Carter Slocum,THH201,12:30 PM,01:50 PM,"Tue, Thu",33,87
-            # 29910,Data Structures,Mukund Raghothaman,MHP101,05:00 PM,06:20 PM,"Mon, Wed",64,6
-            # 30397,Data Structures,Carter Slocum,SGM124,09:30 AM,10:50 AM,"Tue, Thu",74,46
+            # id,title,instructor,location,start_time,end_time,day,spaces_left,number_registered,units
+            # 29903,Data Structures,Carter Slocum,THH201,12:30 PM,01:50 PM,"Tue, Thu",33,87,4
+            # 29910,Data Structures,Mukund Raghothaman,MHP101,05:00 PM,06:20 PM,"Mon, Wed",64,6,4
+            # 30397,Data Structures,Carter Slocum,SGM124,09:30 AM,10:50 AM,"Tue, Thu",74,46,4
 
             # If the course number department is not found, an error message will be returned
             sections = my_cache.get_sections("INVALID_COURSE")
@@ -282,18 +283,20 @@ class Cache(object):
             schedule = my_cache.sect_to_sched_dict(sections)
 
             print(schedule)
-            # [
+            # Output: [
             #     {
-            #         "label": "Data Structures<br>CSCI 104<br>THH201<br>Carter Slocum",
+            #         "label": "CSCI 100 - 29903<br>Carter Slocum<br>@THH201",
             #         "start_hour": 12.5,
-            #         "end_hour": 13.833333333333334,
+            #         "end_hour": 13.83333,
             #         "day": ["Tue", "Thu"],
+            #         "hover": "Data Structures (4 un.)<br>Tue, Thu,  12:30 PM – 01:50 PM",
             #     },
             #     {
-            #         "label": "Data Structures<br>CSCI 104<br> MHP101<br>Mukund Raghothaman",
+            #         "label": "CSCI 100 - 29910<br>Mukund Raghothaman<br>@MHP101",
             #         "start_hour": 17.0,
-            #         "end_hour": 18.333333333333332,
+            #         "end_hour": 18.33333,
             #         "day": ["Mon", "Wed"],
+            #         "hover": "Data Structures (4 un.)<br>Mon, Wed,  05:00 PM – 06:20 PM",
             #     },
             # ]
             ```
@@ -305,10 +308,11 @@ class Cache(object):
 
         data = [
             {
-                "label": f"{row['title']}<br>{row['code']} - {row['id']}<br>{row['location']}<br>{row['instructor']}",
+                "label": f"{row['code']} - {row['id']}<br>{row['instructor']}<br>@{row['location']}",
                 "start_hour": time_to_decimal(row["start_time"]),
                 "end_hour": time_to_decimal(row["end_time"]),
                 "day": row["day"].split(", "),
+                "hover": f"{row['title']} ({row['units']} un.)<br>{row["day"]},  {row["start_time"]} – {row["end_time"]}",
             }
             for _, row in self.sections[self.sections["id"].isin(sections)].iterrows()
         ]
@@ -371,6 +375,7 @@ class Cache(object):
             #     "day": ["Tue", "Thu"],
             #     "spaces_left": 33,
             #     "number_registered": 87,
+            #     "units": 4,
             # }
             ```
         """
@@ -378,3 +383,27 @@ class Cache(object):
             raise SectionNotFound(section)
 
         return self.sections[self.sections["id"] == section].iloc[0].to_dict()
+
+    def get_sections_data(self, sections: list[str]) -> pd.DataFrame:
+        """
+        Get data for multiple sections.
+
+        Args:
+            sections (list[str]): A list of section IDs.
+                Example: ["29903", "29910", "30397"]
+
+        Returns:
+            output (pd.DataFrame): A DataFrame containing section information.
+
+        Examples:
+            ```
+            # Get data for multiple sections
+            sections_data = my_cache.get_sections_data(["29903", "29910"])
+            print(sections_data)
+            # Output: A DataFrame containing section information for the specified sections
+            ```
+        """
+        for section in sections:
+            if not self.is_valid_section(section):
+                raise SectionNotFound(section)
+        return self.sections[self.sections["id"].isin(sections)]

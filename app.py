@@ -37,14 +37,11 @@ def main() -> None:
     if "debug_logs" not in st.session_state:
         st.session_state["debug_logs"] = []
 
-    # TODO Make a display in the sidebar to show the planned schedule
-
     # update the interface with the previous messages
     for message in st.session_state["messages"]:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # TODO Fix issue with prior chats becoming None once a new response is generated
     # create the chat interface
     if prompt := st.chat_input("Enter your query"):
         st.session_state["messages"].append({"role": "user", "content": prompt})
@@ -54,7 +51,7 @@ def main() -> None:
         # get response from the model
         response = st.session_state["model"](prompt)
         with st.chat_message("assistant"):
-            st.markdown(response.replace("\n", "  \n"))
+            st.markdown(response)
 
         # update the interface with the response
         st.session_state["messages"].append({"role": "assistant", "content": response})

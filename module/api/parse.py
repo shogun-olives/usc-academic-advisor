@@ -32,6 +32,7 @@ def get_courses_dfs(
         - spaces_left: The number of spaces left in the section
         - number_registered: The number of students registered for the section
         - spaces_available: The total number of spaces available in the section
+        - units: The number of units for the section
 
     Args:
         dept_code (str): The department code (e.g. "CSCI").
@@ -57,11 +58,11 @@ def get_courses_dfs(
         # [88 rows x 6 columns]
 
         # sections dataframe
-        #         id       code  dept   term  title     instructor location start_time  end_time       day  spaces_left number_registered spaces_available
-        # 0    30211   CSCI 100  CSCI  20243    ...   Raghavachary   ZHS352   11:00 AM  12:20 PM  Tue, Thu            1                59               60
-        # 1    29918   CSCI 102  CSCI  20243    ...  Mark Redekopp   GFS106   01:00 PM  01:50 PM  Mon, Wed           23               121              144
-        # 2    30235   CSCI 102  CSCI  20243    ...  Mark Redekopp   GFS106   02:00 PM  02:50 PM  Mon, Wed           30               114              144
-        # ..     ...        ...   ...    ...    ...            ...      ...        ...       ...       ...          ...               ...              ...
+        #         id       code  dept   term  title     instructor location start_time  end_time       day  spaces_left number_registered spaces_available  units
+        # 0    30211   CSCI 100  CSCI  20243    ...   Raghavachary   ZHS352   11:00 AM  12:20 PM  Tue, Thu            1                59               60       4
+        # 1    29918   CSCI 102  CSCI  20243    ...  Mark Redekopp   GFS106   01:00 PM  01:50 PM  Mon, Wed           23               121              144       4
+        # 2    30235   CSCI 102  CSCI  20243    ...  Mark Redekopp   GFS106   02:00 PM  02:50 PM  Mon, Wed           30               114              144       4
+        # ..     ...        ...   ...    ...    ...            ...      ...        ...       ...       ...          ...               ...              ...     ...
         #
         # [136 rows x 12 columns]
         ```
@@ -130,6 +131,7 @@ def get_courses_dfs(
                     ),
                     "number_registered": section_data.get("number_registered", 0),
                     "spaces_available": section_data.get("spaces_available", 0),
+                    "units": int(course_data["CourseData"]["units"][0]),
                 }
             )
 

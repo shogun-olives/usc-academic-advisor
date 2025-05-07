@@ -144,7 +144,7 @@ def create_schedule(
                     fillcolor="rgba(0,0,0,0)",  # invisible
                     line=dict(width=0),
                     hoverinfo="text",
-                    text=f"{day},  {decimal_to_time(event['start_hour'])} – {decimal_to_time(event['end_hour'])}",
+                    text=event["hover"],
                     showlegend=False,
                 )
             )
