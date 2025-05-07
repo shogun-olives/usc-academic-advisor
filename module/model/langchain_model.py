@@ -9,7 +9,6 @@ from ..errors import DepartmentNotFound, CourseNotFound
 from ..api import Cache
 from ..ui import create_schedule
 import streamlit as st
-from datetime import datetime
 import re
 import os
 import json

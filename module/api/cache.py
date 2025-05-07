@@ -312,7 +312,7 @@ class Cache(object):
                 "start_hour": time_to_decimal(row["start_time"]),
                 "end_hour": time_to_decimal(row["end_time"]),
                 "day": row["day"].split(", "),
-                "hover": f"{row['title']} ({row['units']} un.)<br>{row["day"]},  {row["start_time"]} – {row["end_time"]}",
+                "hover": f"{row['title']} ({row['units']} un.)<br>{row['day']},  {row['start_time']} – {row['end_time']}",
             }
             for _, row in self.sections[self.sections["id"].isin(sections)].iterrows()
         ]
