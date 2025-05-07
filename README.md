@@ -138,10 +138,10 @@ Before getting started, there are two requirements
     -   [x] Side-Bar for displaying Schedule
         -   [x] Obtain schedule from LLM
         -   [x] Tabular display of data
--   [ ] Fine Tuning
-    -   [ ] Create data for custom model features
-    -   [ ] Train model and continue fine tuning
-    -   [ ] Prompt engineering to perfect responses
+-   [x] Fine Tuning
+    -   [x] Create data for custom model features
+    -   [x] Train model and continue fine tuning
+    -   [x] Prompt engineering to perfect responses
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
