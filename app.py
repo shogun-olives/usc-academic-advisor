@@ -49,7 +49,9 @@ def main() -> None:
             st.markdown(prompt)
 
         # get response from the model
-        response = st.session_state["model"](prompt)
+        with st.spinner("Generating Response...", show_time=True):
+            response = st.session_state["model"](prompt)
+
         with st.chat_message("assistant"):
             st.markdown(response)
 
