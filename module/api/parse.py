@@ -115,7 +115,8 @@ def get_courses_dfs(
                     "title": (
                         course_data["CourseData"]["section_title"]
                         if not isinstance(
-                            course_data["CourseData"].get("section_title", dict()),
+                            course_data["CourseData"].get(
+                                "section_title", dict()),
                             dict,
                         )
                         else course_data["CourseData"].get("title", "N/A")

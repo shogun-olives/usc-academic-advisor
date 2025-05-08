@@ -2,6 +2,7 @@ from langchain.agents import initialize_agent, Tool, AgentExecutor
 from langchain.agents.agent_types import AgentType
 from langchain_community.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
+import pandas as pd
 from ..util import get_openai_api_key, get_depts
 from ..util import fuzzy_match_dept, fuzzy_match_course
 from ..errors import DepartmentNotFound, CourseNotFound
@@ -72,6 +73,7 @@ class LangChainModel:
         self.dflt_max_tokens = max_tokens
         self.section_ids = []
         self.last_course = None
+        self.load_sections()
 
         # Tools =====================================================================================
         def get_courses(dept: str) -> str:
@@ -354,7 +356,8 @@ class LangChainModel:
 
             if debug_mode:
                 st.session_state["debug_logs"].append(
-                    "\n\n".join([f"[{step[0].tool}] {step[1]}" for step in steps])
+                    "\n\n".join(
+                        [f"[{step[0].tool}] {step[1]}" for step in steps])
                 )
                 response += "\n\n---\nTool Details:\n" + "\n".join(
                     f"[{step[0].tool}] {step[1]}" for step in steps
@@ -363,3 +366,20 @@ class LangChainModel:
             pass
 
         return response
+
+    def load_sections(self):
+        """
+            Load sections from Streamlit session state if available, else fallback to default.
+            """
+        default_columns = [
+            "id", "code", "dept", "term", "title", "instructor",
+            "location", "start_time", "end_time", "day",
+            "spaces_left", "number_registered", "spaces_available", "units"
+        ]
+
+        if "sections" in st.session_state and not st.session_state["sections"].empty:
+            self.sections = st.session_state["sections"]
+            print("[INFO] Using latest fetched section data.")
+        else:
+            print("[INFO] Using fallback/default section data.")
+            self.sections = pd.DataFrame(columns=default_columns)

@@ -1,5 +1,7 @@
+from datetime import date
 from dotenv import load_dotenv
 import os
+
 
 def get_openai_api_key() -> str:
     """
@@ -29,3 +31,22 @@ def get_openai_api_key() -> str:
                 ]
             )
         )
+
+
+def get_current_term_code() -> str:
+    """
+    Estimate the current USC term code based on today's date.
+
+    Returns:
+        str: The term code (e.g., "20253")
+    """
+    today = date.today()
+    year = today.year
+    month = today.month
+
+    if 1 <= month <= 5:
+        return f"{year}1"
+    elif 6 <= month <= 7:
+        return f"{year}2"
+    else:
+        return f"{year}3"

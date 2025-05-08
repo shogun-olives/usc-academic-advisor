@@ -1,5 +1,7 @@
+import pandas as pd
 from module import LangChainModel
 import streamlit as st
+from module.api.api_requests import fetch_all_sections
 
 
 def main() -> None:
@@ -23,9 +25,20 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
+    if "sections" not in st.session_state:
+        st.session_state["sections"] = pd.DataFrame(columns=[
+            "id", "code", "dept", "term", "title", "instructor", "location",
+            "start_time", "end_time", "day", "spaces_left",
+            "number_registered", "spaces_available", "units"
+        ])
     # give title to the page
     st.title("USC Course Chatbot")
     st.subheader("Ask me anything about USC courses!")
+
+    if st.button("Fetch Latest Sections"):
+        with st.spinner("Fetching all departments..."):
+            st.session_state["sections"] = fetch_all_sections()
+            st.success("Fetched latest sections!")
 
     # initialize session variables at the start once
     if "model" not in st.session_state:
@@ -44,7 +57,8 @@ def main() -> None:
 
     # create the chat interface
     if prompt := st.chat_input("Enter your query"):
-        st.session_state["messages"].append({"role": "user", "content": prompt})
+        st.session_state["messages"].append(
+            {"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
@@ -56,7 +70,8 @@ def main() -> None:
             st.markdown(response)
 
         # update the interface with the response
-        st.session_state["messages"].append({"role": "assistant", "content": response})
+        st.session_state["messages"].append(
+            {"role": "assistant", "content": response})
 
         if st.session_state["model"].fig_created:
             st.sidebar.plotly_chart(
